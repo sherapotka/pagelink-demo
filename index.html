@@ -56,6 +56,7 @@
   ul{margin:9px 0 0; padding-left:17px; color:var(--dim); font-size:12.5px}
   li{margin:2px 0}
   .foot{text-align:center; color:var(--faint); font-size:11px; margin-top:26px}
+  .sect{color:var(--dim); font-size:12.5px; margin:0 0 12px; text-align:center}
 </style>
 </head>
 <body>
@@ -64,27 +65,28 @@
   <p class="sub">VGH physician communication platform &middot; interactive simulation</p>
   <p class="note">SYNTHETIC DATA ONLY &middot; NO REAL PATIENT INFORMATION</p>
 
+  <p class="sect">Three directions for the app inside the phones. Same data, same words.</p>
   <div class="grid">
-    <a class="card" href="v2.html">
-      <div class="row">
-        <span class="name">Version 2</span>
-        <span class="tag new">Current</span>
-      </div>
-      <p class="desc">Clinical UI pass over version 1.</p>
-      <ul>
-        <li>Urgency is shown on the page card and sorts above recency, so a STAT never sits below a routine page</li>
-        <li>Night theme for the 3am case</li>
-        <li>24-hour clock, reserved semantic colour, drawn icon set</li>
-        <li>Fixes a crash that took down the Division admin console</li>
-      </ul>
+    <a class="card" href="v2a.html">
+      <div class="row"><span class="name">A &middot; Clinical terminal</span><span class="tag new">Direction</span></div>
+      <p class="desc">Dark by default, mono, uppercase identifiers, colour only for alarms. Reads like a bedside monitor. The boldest departure.</p>
+    </a>
+    <a class="card" href="v2b.html">
+      <div class="row"><span class="name">B &middot; EMR table</span><span class="tag new">Direction</span></div>
+      <p class="desc">Real columns, gridlines, a header row, one line per page. Familiar to any hospital physician. Note: a table wants width, so on a phone the question column squeezes hard — this direction argues for the desktop console.</p>
+    </a>
+    <a class="card" href="v2c.html">
+      <div class="row"><span class="name">C &middot; Calm, large type</span><span class="tag new">Direction</span></div>
+      <p class="desc">The opposite bet: fewer items, 16px question, generous space, near-monochrome. Easiest to read at 3am.</p>
     </a>
 
+    <a class="card" href="v2.html">
+      <div class="row"><span class="name">Current</span><span class="tag old">v2</span></div>
+      <p class="desc">Where we are now: urgency-driven rows, night theme, 24-hour clock, drawn icons.</p>
+    </a>
     <a class="card" href="prototype-live.html?solo=1">
-      <div class="row">
-        <span class="name">Version 1</span>
-        <span class="tag old">Original</span>
-      </div>
-      <p class="desc">The original build, unchanged, kept for comparison.</p>
+      <div class="row"><span class="name">Original</span><span class="tag old">v1</span></div>
+      <p class="desc">The original build, unchanged, for comparison.</p>
     </a>
   </div>
 
