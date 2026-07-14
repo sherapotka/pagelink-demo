@@ -4140,7 +4140,7 @@ const OnCallTeam = ({ service, until, members, selected, onSelect, loading }) =>
       : h("div", { role: "listbox", "aria-label": `On-call physicians for ${service}` },
           members.map((m, i) => h(PhysicianOption, {
             key: m.name, index: i, name: m.name, title: m.title,
-            position: posLabel(i), until: until,
+            position: "On call", until: until,
             selected: selected === m.name, onSelect: () => onSelect(m.name)
           }))));
 };
@@ -4284,7 +4284,7 @@ const ComposerUI = ({ draft, setDraft, roster, directory, services, deviceDark, 
     const t = rq.trim().toLowerCase();
     if (!t) return [];
     return directory.filter(d => {
-      const pos = r && r.oncall.indexOf(d.name) >= 0 ? posLabel(r.oncall.indexOf(d.name)) : "";
+      const pos = r && r.oncall.indexOf(d.name) >= 0 ? "On call" : "";
       return [d.name, d.title, d.service, pos].filter(Boolean).join(" ").toLowerCase().includes(t);
     }).slice(0, 6);
   }, [rq, directory, r]);
@@ -4308,7 +4308,7 @@ const ComposerUI = ({ draft, setDraft, roster, directory, services, deviceDark, 
   };
 
   const selectedTitle = draft.to ? titleOf(draft.to) : null;
-  const selectedPos = r && draft.to ? posLabel(r.oncall.indexOf(draft.to)) : null;
+  const selectedPos = r && draft.to && r.oncall.indexOf(draft.to) >= 0 ? "On call" : null;
 
   return h("div", null,
     h(PageHeader, { onCancel: onCancel }),
@@ -4343,7 +4343,7 @@ const ComposerUI = ({ draft, setDraft, roster, directory, services, deviceDark, 
             : h("div", { role: "listbox", "aria-label": "Search results" }, searchHits.map(d =>
                 h(PhysicianOption, {
                   key: d.name, name: d.name, title: d.title,
-                  position: r && r.oncall.indexOf(d.name) >= 0 ? posLabel(r.oncall.indexOf(d.name)) : d.service,
+                  position: r && r.oncall.indexOf(d.name) >= 0 ? "On call" : d.service,
                   until: r && r.oncall.indexOf(d.name) >= 0 ? r.until : null,
                   selected: draft.to === d.name,
                   onSelect: () => { set({ to: d.name, service: draft.service || d.service }); setRq(""); }
@@ -5002,7 +5002,7 @@ const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDi
       React.createElement("div", { style: { fontSize: 13, color: T.dim, marginTop: 3 } },
         [meta.title, svcOfName(p.from) || meta.service].filter(Boolean).join(" · ")),
       pos >= 0 && React.createElement("div", { style: { fontSize: 12, color: T.faint, marginTop: 1 } },
-        posLabel(pos), r && r.until ? ` · until ${r.until}` : ""),
+        "On call", r && r.until ? ` · until ${r.until}` : ""),
       React.createElement("div", {
         style: { fontSize: 14, fontWeight: 600, color: T.ink, marginTop: 14 }
       }, "Awaiting your response"),
