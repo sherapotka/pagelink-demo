@@ -461,10 +461,21 @@ const DIV = {
 const SENDER = "Dr. Yazdani",
   RECEIVER = "Dr. Chen";
 
-// Profile photos · Dr. Yazdani: Pexels free license (pexels.com/photo/32254660) · Dr. Chen: CC BY 2.0, www.ilmicrofono.it (flickr.com/photos/115089924@N02/16068674648)
 const AVATARS = {
   "Dr. Yazdani": "data:image/jpeg;base64,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",
   "Dr. Chen": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAoHCAkIBgoJCAkMCwoMDxoRDw4ODx8WGBMaJSEnJiQhJCMpLjsyKSw4LCMkM0Y0OD0/QkNCKDFITUhATTtBQj//2wBDAQsMDA8NDx4RER4/KiQqPz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz8/Pz//wAARCACAAIADASIAAhEBAxEB/8QAGwAAAQUBAQAAAAAAAAAAAAAAAAIDBQYHBAH/xAA5EAACAQMCBAMECAUFAQAAAAABAgMABBEFIQYSMUETUWEicYGRFBUyQqGxwfAHFiNi0SQzUnKC4f/EABgBAQADAQAAAAAAAAAAAAAAAAABAgME/8QAHREBAQEAAgMBAQAAAAAAAAAAAQACESEDEjFBE//aAAwDAQACEQMRAD8A2aiiikiiiikiimLu7gs7dpriQIi9z39B5ms/4h4+lRzDpihO3Owy3+Kh0H2kF+WjUZrC5uItYuZC731xnyDkCnLXiPWbaTmjv7j3MxYfI1n/AFLT+TbjRVD4a43a5lW31UKGPSVRj5ir0rK6hlIKkZBHetDRr5ZuXLwyqKKKmiKKKKSKKKKSKKKKSKRLIsUTSSMFRAWYnsBS6g+MJ2g4cuOXbnwh9x6/gKMs94o4la9uZHJIjGVhjB+yPP31UY353yaavZS92xJ77V7CwDVy7Vbs8YF3IMkEU/yHl2Fe2cfPipDYL4YG5rPi6flFBijhl2Ybg1pXBOvi5VbOZ/a+6D2Pp6H99azy6QI29P6NcG31GOSMkFWBHwNXw+rYeXAluNFIicSRI46MAR8aXXXcMUUUUkUUUUkUUUUkVX+NlD8Oy52AYEny61YKzvjbi6XT9ZfSnsYLi0CoZVkzzOGHbt+HaoXgpBXqzC7jKzMfKnIUmGDGYSfJmxXbxX9EfVYvq2MJG6HnQLjDZOMj3Y6bVwWVncSTRMZsDmPMMdvT1rFyHa3RhX4UxY3bRuBNCAB1ZTkVKePCpaYIBt3NV+9huoYWKznmUZPKcDHrSUiuJIrf6RJ4lvKxxgY5SegPpUeuXvm29tHSUjJNLdPiExDzJNKsojFcATlAxI5TzAZPlUcNMnxhbnwk8x191dtnG9v9Oj8Y+BJbyHlyDjbZQSDnJx6+opkypU26B5tytEMdpCh6qij8Kequ8D3U91w1ALoyNPETHI8hyWI36+mcfCrFXRcb1FFFFJFFFFJFFFFJFY1/EqBouN0d8lLhYj8On5itlqucXcNpr1pG0RSO8gYGKRuhGQSpqujkr41w2PaqitqkgU4zjGKVb2r9fpLjHoP1Fea8j2uuXETr9lsD0xTEd2yRZAzmsUfy6sOeO7qljEwlQ3TeGhAdpGAHyqZhit200t4imPGMefrmq/EvjZJiBLdc96mbOzSK25YIlRO/tbCskdftvlM/kyqxqhkS7lkTO5DZx8xTg8FJY3R3kbIILtnBpi454VLF05fU4pmwjkkuliUEh2AQeRParns/tnpyflsvC9ubfQoOb7UuZSPLmOfyxUxTcEYhgjiXoihR8BinK6TouBeXmKKKKmiKKKKSKKKKSKK8Zgqkk4AqDvdamtizrArRBsbkg0lnf8TLAW2vmUD2LhQ49D3qpWgWWFon7HYg4NTHFetXfEE1zqaoDZW8xgjQdeUDds++q/BIDiWJsr39Kze7fLxWPQfoMUrR3SNcJty87EFfPp1q3QR6WkCtHpkTtgfbJP61n9ueYq2cZPWp2G3YqCbqRlxnlDVl3dAZTmXrTQXF0HW2hiKRlOWMbds/lXbwPpxvNehkK5itv6rHtnsPnVfuWPi4BwoPzrUuAoYk4cSWNAGkdizd2wcCr4Oftl5dB0Vmooora5YooopIooopIoorjvrwQIVjw0uNl8qSRfzMrBB5Z+NReoWzSaNdpGMyNExHnnFP2nM0/PLkmQdT513FcDarBQ2WcDWkdzw/NC6hiJ5A4I671XeJ+FrnS5nvdNDGHq6gZ5R+oq5aCo0ni/WdLI5UaT6TCD3Vtjj8KuJgjlXDKDUmBKPdGwG11XlXknRl3zlRkf8AypK31dwf9OJJNunLirhxZwbBb8+oWEYER3liA2T+4enp2qqxgW+yxjFY6PV7urC6OmSks00n9UcvpWycCuv8sWyEgOOY48xk71kPZnbAAGSavFsNQ0jhPTtSiRmntSZJoR1eBj7S+8Dlb0xTHatXy9AWlUVF2OqR3dnDdQMJbeZQysNjipCKVJVyhz6VexnKKKKSKKKKSjLu/wDZZLfcjYt/io2QM1wCTnO9PRIFhyerbmvVXJG1SE5n/DJhPL1AyPfXRGxxgj3URD2duor0AIAATj1OcVerUzj2H6vvNM4hiUkWsnhXOO8TbH5b1YLdw0YKsGUjII7jsae12zXUdCvLRlDeLEwAPn2qrcA3r3Gh/RJyfHsXMLg9cDpU5fyhrZyq6lWAYEYIPQisx4r0GTSLppoo2ayc5RxuEz90+VaRPJPHZyS20HjOi5VObl5j5ZqmzX95qbyRyTmNweUxOvKF9OX889as+H+p1M+X+TzVbRoDf6xZ2oTnRpA8qjui74+JwK111/o7gHcgg9PdVO0rR/q2We8jKLcSqAPDJKx/9Qfng9PWkaVY3gubi606d1cMS6MxbxjsSTnYnepx4XGHmeTzHk31SGjMeHuI30d8/V1/maxJ6I/3o/36edWrlKnmQkHsRVa1q1l1zhwtaqy31q4nhUfaDr1A/flU1o1+NV0i3vOXld1xIpGCrjZhjtvWValIbzGFm28mrsBDDIIIPcVFumciiGR7ds9VPVahJzStFJRw6BlOQaVVaaJSPKbjpS48YOw2pxFwcGkoMSSL8a0qzgAXBr2QeznyOa8Htx+8V6p54M+a0knOAdulUjSbSPT/AOJuoWbEiK9h8eIA7EjqPln5VeE3RT6VSuN5PqvX9E1oHCwzhJT/AGnY/gaiFeOUKAAMDyqucR6Ek+b62fwZ0G7Y2YeTf5qyFhye0dv+XavGRZYmjccyMMEeYq2dOXkoQTizi21J7W5ltb0cksT8jrnof33qzcOIqCdRggzMR54KrUJxJps0HERujGphmC8rYBzygDf1qW0Fz9amPYKYPEwPPIH6V1+R9vHzc2D18nFYFjRZGZVAZupA61Fxakn81XWl+EIz4CzK+MGRu59dsD/yamSM1UeLD9Xazo+sqMLFN4Ex/sb9t864rqrU2MA0iQZQH1pf3SOuDXjD2TSS9PJAZT06iu2uGy/3B6A/pXdVWtf/2Q=="
+};
+// Stable identity colour + initials, derived from the name. Deterministic, so a
+// physician keeps the same avatar everywhere in the app.
+const avatarHue = name => {
+  let acc = 0;
+  for (let i = 0; i < (name || "").length; i++) acc = ((acc << 5) - acc + name.charCodeAt(i)) | 0;
+  return Math.abs(acc) % 360;
+};
+const avatarInitials = name => {
+  const clean = (name || "?").replace(/^Dr\.\s*/, "").trim();
+  const parts = clean.split(/\s+/).filter(Boolean);
+  return (parts.length > 1 ? parts[0][0] + parts[parts.length - 1][0] : clean.slice(0, 2)).toUpperCase();
 };
 const Avatar = ({
   name,
@@ -488,17 +499,18 @@ const Avatar = ({
     width: size,
     height: size,
     borderRadius: 99,
-    background: bg,
+    background: bg || `hsl(${avatarHue(name)} 48% 42%)`,
     color: fg,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     fontFamily: T.disp,
-    fontWeight: 800,
-    fontSize: fontSize,
+    fontWeight: 700,
+    fontSize: fontSize * 0.78,
+    letterSpacing: .3,
     flexShrink: 0
   }
-}, (name || "?").replace("Dr. ", "").charAt(0));
+}, avatarInitials(name));
 const POOL = {
   "Neurosurgery": ["Dr. Chen", "Dr. Patel", "Dr. Ruiz", "Dr. Wong"],
   "Cardiology": ["Dr. Moreau", "Dr. Singh", "Dr. Adeyemi"],
