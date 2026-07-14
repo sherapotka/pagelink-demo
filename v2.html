@@ -945,7 +945,17 @@ const DX = ["I63.9 · Cerebral infarction, unspecified", "I61.9 · Intracerebral
 // instead of waiting out a real timer. Production values are in PROD_TIMING.
 const REM1 = 3,
   REM2 = 5,
-  ALERT = 10;
+  ALERT = 10,
+  ESCALATE = 14;
+// Escalation: an unanswered page walks DOWN the roster's call order — the real
+// escalation chain — rather than guessing from job title. Returns the next
+// physician after `from`, or null when the chain is exhausted.
+const nextOnCall = (roster, service, from) => {
+  const r = roster.find(x => x.service === service);
+  if (!r || !r.oncall.length) return null;
+  const i = r.oncall.indexOf(from);
+  return i >= 0 && i + 1 < r.oncall.length ? r.oncall[i + 1] : null;
+};
 let _id = 1;
 const nid = () => _id++;
 const fmt = t => new Date(t).toLocaleTimeString("en-GB", {
@@ -1338,7 +1348,16 @@ const PageRow = ({ p, me, dir, onOpen, extra }) => {
     style: { fontFamily: T.mono, color: T.dim }
   }, ident), " \u00b7 ", /*#__PURE__*/React.createElement("span", {
     style: { color: acked ? T.ok : p.declined ? T.stat : T.faint, fontWeight: 500 }
-  }, outcome)), extra);
+  }, outcome)),
+  // an escalation the sender cannot see is worse than none
+  (p.escalatedTo || p.escalationExhausted) && !acked && /*#__PURE__*/React.createElement("div", {
+    style: {
+      display: "flex", alignItems: "center", gap: 4, marginTop: 3,
+      fontSize: 10, fontWeight: 600, color: T.stat
+    }
+  }, /*#__PURE__*/React.createElement(Icon, { name: "alert", size: 10, sw: 2.4 }),
+     p.escalatedTo ? `Escalated to ${p.escalatedTo}` : "Call order exhausted \u00b7 Locating notified"),
+  extra);
 };
 const Pill = ({
   c,
@@ -2784,7 +2803,7 @@ const HistoryDetail = ({
       gap: 7
     }
   }, p.events.map((e, i) => {
-    const c = e.type === "GAP" || e.type === "DECLINE" || e.type === "REM1" ? T.urgent : e.type === "REM2" || e.type === "ALERT" || e.type === "REPAGE" ? T.stat : e.type === "ACK" || e.type === "COMPLETED" ? T.ok : T.dim;
+    const c = e.type === "ESCALATE" ? T.stat : e.type === "GAP" || e.type === "DECLINE" || e.type === "REM1" ? T.urgent : e.type === "REM2" || e.type === "ALERT" || e.type === "REPAGE" ? T.stat : e.type === "ACK" || e.type === "COMPLETED" ? T.ok : T.dim;
     return /*#__PURE__*/React.createElement("div", {
       key: i,
       style: {
@@ -4862,7 +4881,8 @@ const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDi
         borderLeft: `3px solid ${ut.c}`, borderRadius: 14, padding: "8px 12px",
         boxShadow: "0 1px 2px rgba(16,36,62,.04)"
       }
-    }, p.service && row("Service", p.service),
+    }, p.escalatedTo && row("Escalated to", p.escalatedTo, T.stat),
+       p.service && row("Service", p.service),
        row("Urgency", p.urgency || "-", stat ? T.stat : p.urgency === "Urgent" ? T.urgent : T.ink),
        row("Reason", p.question || "-"),
        p.mrn && row(p.idType === "PHN" ? "PHN" : "MRN", p.mrn),
@@ -6341,6 +6361,19 @@ function PageLinkDemo() {
         if (p.to === RECEIVER && !has("ACK")) {
           if (!has("REM1") && el > REM1) return add(ev("REM1", "No response after 30 min · reminder 1: push + SMS + call"));
           if (!has("REM2") && el > REM2) return add(ev("REM2", "No response after 1 hr · reminder 2: push + SMS + call"));
+          if (has("ALERT") && !has("ESCALATE") && el > ESCALATE) {
+            const nxt = nextOnCall(roster, p.service, p.to);
+            return nxt ? {
+              ...p,
+              escalatedTo: nxt,
+              escalatedAt: Date.now(),
+              events: [...p.events, ev("ESCALATE", `No response · escalated to ${nxt} (${posLabel((roster.find(x => x.service === p.service) || { oncall: [] }).oncall.indexOf(nxt))})`)]
+            } : {
+              ...p,
+              escalationExhausted: true,
+              events: [...p.events, ev("ESCALATE", `No response · call order exhausted for ${p.service} · Locating notified`)]
+            };
+          }
           if (!has("ALERT") && el > ALERT) return add(ev("ALERT", `No response after 1.5 hr · ${p.from} alerted that ${p.to} hasn't responded`));
         }
         return p;
