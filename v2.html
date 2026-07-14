@@ -6919,7 +6919,7 @@ function PageLinkDemo() {
     }
   }, /*#__PURE__*/React.createElement("style", null, `@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@700;800&family=JetBrains+Mono:wght@400;600&display=swap'); *{font-variant-numeric:tabular-nums;font-feature-settings:"tnum" 1,"cv05" 1;} input,textarea,select{background:${T.surface};color:${T.ink};font-family:${T.sans};} ::-webkit-calendar-picker-indicator{filter:${T.bg === "#080C12" ? "invert(1)" : "none"};} button:focus-visible,input:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{outline:2px solid ${T.blue};outline-offset:2px;border-radius:4px;} input::placeholder,textarea::placeholder{color:${T.faint};} .pl-phone3d{transition:transform .45s ease} .pl-phone3d:hover{transform:perspective(1400px) rotateY(0deg) !important} @keyframes plFlowR{0%{left:0;opacity:0}12%{opacity:1}88%{opacity:1}100%{left:calc(100% - 15px);opacity:0}} @keyframes plFlowL{0%{right:0;opacity:0}12%{opacity:1}88%{opacity:1}100%{right:calc(100% - 15px);opacity:0}}`), /*#__PURE__*/React.createElement("div", {
     style: {
-      maxWidth: 1240,
+      maxWidth: 980,
       margin: "0 auto"
     }
   }, /*#__PURE__*/React.createElement("div", {
@@ -7138,12 +7138,13 @@ function PageLinkDemo() {
     style: {
       alignSelf: "center",
       flex: 1,
-      maxWidth: 430,
-      minWidth: 170,
+      // the flow indicator column sets the distance between the phones
+      maxWidth: 190,
+      minWidth: 110,
       display: "flex",
       flexDirection: "column",
       gap: 48,
-      padding: "0 12px"
+      padding: "0 8px"
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
