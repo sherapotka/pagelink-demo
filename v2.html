@@ -940,9 +940,12 @@ const CODES = [{
 // Representative ICD-10 diagnosis codes (WHO ICD-10). Verify against the current code set before clinical/billing use.
 const DX = ["I63.9 · Cerebral infarction, unspecified", "I61.9 · Intracerebral haemorrhage, unspecified", "I60.9 · Subarachnoid haemorrhage, unspecified", "I21.9 · Acute myocardial infarction, unspecified", "G45.9 · Transient cerebral ischaemic attack, unspecified", "G40.9 · Epilepsy, unspecified", "G91.1 · Obstructive hydrocephalus", "G93.6 · Cerebral oedema", "G95.2 · Compression of spinal cord, unspecified", "S06.0 · Concussion", "S06.4 · Traumatic epidural haemorrhage", "S06.5 · Traumatic subdural haemorrhage", "S02.0 · Fracture of vault of skull", "S12.9 · Fracture of neck, unspecified", "S32.0 · Fracture of lumbar vertebra", "S61.2 · Open wound of hand", "C71.9 · Malignant neoplasm of brain, unspecified", "D32.9 · Benign neoplasm of meninges, unspecified", "M54.5 · Low back pain", "M51.1 · Lumbar disc disorder with radiculopathy", "K35.8 · Acute appendicitis", "K80.2 · Calculus of gallbladder without cholecystitis", "K92.2 · Gastrointestinal haemorrhage, unspecified", "J18.9 · Pneumonia, unspecified organism", "J96.0 · Acute respiratory failure", "N17.9 · Acute kidney failure, unspecified", "A41.9 · Sepsis, unspecified organism", "R51.9 · Headache", "R55 · Syncope and collapse", "R56.9 · Convulsions, unspecified", "R40.2 · Coma, unspecified", "Z71.9 · Counselling, unspecified"];
 // Reminder policy (accelerated for the demo): real-world 30 min / 60 min / 90 min
-const REM1 = 10,
-  REM2 = 20,
-  ALERT = 30;
+// Reminder thresholds, in seconds of demo time, standing in for 30 min / 1 hr / 1.5 hr.
+// Shortened so a stakeholder sees banner -> reminder call -> sender alert inside ~10s
+// instead of waiting out a real timer. Production values are in PROD_TIMING.
+const REM1 = 3,
+  REM2 = 5,
+  ALERT = 10;
 let _id = 1;
 const nid = () => _id++;
 const fmt = t => new Date(t).toLocaleTimeString("en-GB", {
@@ -4756,103 +4759,152 @@ const DeclineNotice = ({ onClose }) =>
       }
     }, "Close"));
 
-const RING_SECONDS = 15;
-const CallScreen = ({
-  p,
-  onAccept,
-  onView,
-  onDismiss
-}) => {
+// ============================================================================
+// Reminder call. Fires when a page the physician already received has gone
+// unanswered past its reminder thresholds. Simulation only: no CallKit, no APNs.
+//
+// Redesigned around the physician rather than a red field. Red now means urgency
+// only; the reminder itself is amber. The sender leads, then the alert, then the
+// reason, then the actions.
+// ============================================================================
+// Demo timings are deliberately short so a stakeholder never waits. Production
+// values live in PROD_TIMING and are not used by the simulation.
+const DEMO_TIMING = { bannerMs: 2000, reminderMs: 3000, escalateMs: 5000, ringSeconds: 15 };
+const PROD_TIMING = { bannerMs: 0, reminderMs: 30 * 60000, escalateMs: 60 * 60000, ringSeconds: 45 };
+const RING_SECONDS = DEMO_TIMING.ringSeconds;
+
+const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDismiss }) => {
   const [left, setLeft] = useState(RING_SECONDS);
   useEffect(() => {
     setLeft(RING_SECONDS);
-    const t = setInterval(() => setLeft(s => s - 1), 1000);
+    const t = setInterval(() => setLeft(s => (s > 0 ? s - 1 : 0)), 1000);
     return () => clearInterval(t);
   }, [p.id]);
-  useEffect(() => {
-    if (left <= 0) onDismiss();
-  }, [left]);
-  return /*#__PURE__*/React.createElement("div", {
+
+  const meta = directory.find(d => d.name === p.from) || {};
+  const r = roster.find(x => x.service === p.service);
+  const pos = r ? r.oncall.indexOf(p.from) : -1;
+  const waited = Math.max(1, Math.round((Date.now() - p.sentAt) / 60000));
+  const mm = String(Math.floor(left / 60)).padStart(2, "0");
+  const ss = String(left % 60).padStart(2, "0");
+  const ut = tier(p.urgency);
+  const stat = p.urgency === "STAT";
+
+  const row = (label, value, tone) => React.createElement("div", {
+    style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, padding: "6px 0" }
+  }, React.createElement("span", { style: { fontSize: 11, color: T.faint, flexShrink: 0 } }, label),
+     React.createElement("span", {
+       style: {
+         fontSize: 12, fontWeight: 600, color: tone || T.ink, textAlign: "right",
+         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap"
+       }
+     }, value));
+
+  return React.createElement("div", {
+    role: "dialog", "aria-modal": "true",
+    "aria-label": `Reminder: ${p.urgency || ""} page from ${p.from} awaiting your response`,
+    className: "pl-call",
     style: {
-      height: "100%",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      textAlign: "center"
+      position: "absolute", inset: 0, zIndex: 55, background: T.bg,
+      display: "flex", flexDirection: "column",
+      padding: "22px 16px calc(16px + env(safe-area-inset-bottom))",
+      boxSizing: "border-box"
     }
-  }, /*#__PURE__*/React.createElement("style", null, `@keyframes shake{0%,100%{transform:rotate(0)}15%{transform:rotate(-9deg)}30%{transform:rotate(9deg)}45%{transform:rotate(0)}} @keyframes halo{0%{box-shadow:0 0 0 0 rgba(225,29,72,.35)}100%{box-shadow:0 0 0 30px rgba(225,29,72,0)}}`), /*#__PURE__*/React.createElement("div", {
-    style: {
-      width: 76,
-      height: 76,
-      borderRadius: 99,
-      background: T.stat,
-      color: "#fff",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      fontSize: 32,
-      animation: "shake 1s infinite, halo 1s infinite",
-      marginBottom: 16
-    }
-  }, "\uD83D\uDCDE"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: T.mono,
-      fontSize: 10.5,
-      letterSpacing: 2,
-      color: T.stat
-    }
-  }, "PAGELINK REMINDER CALL"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: T.disp,
-      fontWeight: 700,
-      fontSize: 16,
-      color: T.ink,
-      margin: "8px 0 2px"
-    }
-  }, "Page still unanswered"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 12,
-      color: T.dim,
-      maxWidth: 220,
-      marginBottom: 6
-    }
-  }, p.service, " \xB7 ", p.from), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontFamily: T.mono,
-      fontSize: 11,
-      color: T.faint,
-      marginBottom: 16
-    }
-  }, "Silences in ", Math.max(0, left), "s \xB7 page stays in your list"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 8,
-      width: "100%",
-      maxWidth: 240
-    }
-  }, /*#__PURE__*/React.createElement(Btn, {
-    color: T.ok,
-    full: true,
-    onClick: onAccept
-  }, "\u2713 Accept"), /*#__PURE__*/React.createElement(Btn, {
-    color: T.blue,
-    soft: true,
-    full: true,
-    onClick: onView
-  }, "Open")), /*#__PURE__*/React.createElement(Btn, {
-    color: T.dim,
-    soft: true,
-    full: true,
-    style: {
-      maxWidth: 240,
-      marginTop: 8
-    },
-    onClick: onDismiss
-  }, "Can't talk now \u00B7 silence"));
+  },
+    // --- brand + reminder label -------------------------------------------
+    React.createElement("div", {
+      style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 18 }
+    }, React.createElement("span", {
+      style: {
+        width: 16, height: 16, borderRadius: 4, background: T.blue, color: "#fff",
+        display: "inline-flex", alignItems: "center", justifyContent: "center"
+      }
+    }, React.createElement(Icon, { name: "pager", size: 10, sw: 2.2 })),
+       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: T.dim, letterSpacing: .4 } }, "PageLink"),
+       React.createElement("span", {
+         style: {
+           marginLeft: 2, padding: "2px 7px", borderRadius: 5, background: T.urgentSoft,
+           color: T.urgent, fontSize: 9.5, fontWeight: 800, letterSpacing: .8
+         }
+       }, "REMINDER")),
+
+    // --- the physician leads ----------------------------------------------
+    React.createElement("div", { className: "pl-call-a", style: { textAlign: "center" } },
+      React.createElement("div", { style: { position: "relative", display: "inline-block", marginBottom: 12 } },
+        React.createElement("div", {
+          className: "pl-ring",
+          style: { borderRadius: 999, boxShadow: `0 0 0 5px ${T.surface}, 0 0 0 7px ${ut.s}`, display: "inline-flex" }
+        }, React.createElement(Avatar, { name: p.from, size: 92, fontSize: 34 })),
+        React.createElement("span", {
+          "aria-hidden": "true",
+          style: {
+            position: "absolute", right: -2, bottom: 2, width: 30, height: 30, borderRadius: 999,
+            background: T.blue, color: "#fff", border: `3px solid ${T.bg}`,
+            display: "inline-flex", alignItems: "center", justifyContent: "center"
+          }
+        }, React.createElement(Icon, { name: "phone", size: 13, sw: 2.4 }))),
+      React.createElement("div", { style: { fontFamily: T.disp, fontSize: 22, fontWeight: 700, color: T.ink, letterSpacing: -.4 } }, p.from),
+      React.createElement("div", { style: { fontSize: 13, color: T.dim, marginTop: 3 } },
+        [meta.title, svcOfName(p.from) || meta.service].filter(Boolean).join(" · ")),
+      pos >= 0 && React.createElement("div", { style: { fontSize: 12, color: T.faint, marginTop: 1 } },
+        posLabel(pos), r && r.until ? ` · until ${r.until}` : ""),
+      React.createElement("div", {
+        style: { fontSize: 14, fontWeight: 600, color: T.ink, marginTop: 14 }
+      }, "Awaiting your response"),
+      React.createElement("div", { style: { fontSize: 12, color: T.dim, marginTop: 2 } },
+        "This page has not been acknowledged.")),
+
+    // --- why -----------------------------------------------------------------
+    React.createElement("div", {
+      className: "pl-call-b",
+      style: {
+        marginTop: 16, background: T.surface, border: `1px solid ${T.line}`,
+        borderLeft: `3px solid ${ut.c}`, borderRadius: 14, padding: "8px 12px",
+        boxShadow: "0 1px 2px rgba(16,36,62,.04)"
+      }
+    }, p.service && row("Service", p.service),
+       row("Urgency", p.urgency || "-", stat ? T.stat : p.urgency === "Urgent" ? T.urgent : T.ink),
+       row("Reason", p.question || "-"),
+       p.mrn && row(p.idType === "PHN" ? "PHN" : "MRN", p.mrn),
+       row("Waiting", `${waited} min`, T.urgent)),
+
+    React.createElement("div", { style: { flex: 1, minHeight: 8 } }),
+
+    React.createElement("div", {
+      "aria-live": "polite",
+      style: { textAlign: "center", fontSize: 11.5, color: T.faint, marginBottom: 12 }
+    }, "Reminder repeats in ", React.createElement("span", {
+      style: { fontFamily: T.mono, fontWeight: 600, color: T.dim }
+    }, mm, ":", ss)),
+
+    // --- actions: filled / outlined / text ---------------------------------
+    React.createElement("div", { className: "pl-call-c", style: { display: "flex", flexDirection: "column", gap: 8 } },
+      React.createElement("button", {
+        onClick: onAccept,
+        style: {
+          width: "100%", minHeight: 50, borderRadius: 14, border: "none", cursor: "pointer",
+          background: T.ok, color: "#fff", fontFamily: T.sans, fontSize: 15, fontWeight: 700,
+          display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7
+        }
+      }, React.createElement(Icon, { name: "check", size: 16, sw: 2.6 }), "Acknowledge"),
+      React.createElement("button", {
+        onClick: onView,
+        style: {
+          width: "100%", minHeight: 46, borderRadius: 14, cursor: "pointer",
+          background: T.surface, color: T.blue, border: `1px solid ${T.line}`,
+          fontFamily: T.sans, fontSize: 14, fontWeight: 600
+        }
+      }, "Open page"),
+      React.createElement("button", {
+        onClick: onDismiss,
+        style: {
+          width: "100%", minHeight: 40, borderRadius: 12, cursor: "pointer",
+          background: "none", color: T.faint, border: "none",
+          fontFamily: T.sans, fontSize: 13, fontWeight: 500
+        }
+      }, "Can't talk now · silence")));
 };
 
-// in-app call overlay
 const InAppCall = ({
   withWhom,
   onEnd
@@ -6806,12 +6858,18 @@ function PageLinkDemo() {
     @keyframes plRing{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
     .pl-banner{animation:plBannerIn .3s cubic-bezier(.16,1,.3,1) both}
     .pl-ring{animation:plRing 1.6s ease-in-out infinite}
+    @keyframes plCallIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+    @keyframes plUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    .pl-call{animation:plCallIn .34s cubic-bezier(.34,1.56,.64,1) both}
+    .pl-call-a{animation:plUp .38s cubic-bezier(.16,1,.3,1) .04s both}
+    .pl-call-b{animation:plUp .38s cubic-bezier(.16,1,.3,1) .12s both}
+    .pl-call-c{animation:plUp .38s cubic-bezier(.16,1,.3,1) .20s both}
     .pl-w1{animation:plWordIn .58s cubic-bezier(.16,1,.3,1) both}
     .pl-w2{animation:plWordIn .58s cubic-bezier(.16,1,.3,1) .13s both}
     .pl-bar{animation:plBarGrow 1.68s linear both}
     .pl-splash-out{animation:plSplashOut .35s ease both}
     @media (prefers-reduced-motion:reduce){
-      .pl-w1,.pl-w2,.pl-bar,.pl-splash-out,.pl-banner,.pl-ring{animation-duration:.01ms!important;animation-delay:0ms!important;animation-iteration-count:1!important}
+      .pl-w1,.pl-w2,.pl-bar,.pl-splash-out,.pl-banner,.pl-ring,.pl-call,.pl-call-a,.pl-call-b,.pl-call-c{animation-duration:.01ms!important;animation-delay:0ms!important;animation-iteration-count:1!important}
     }`), stage === "boot" ? /*#__PURE__*/React.createElement(Splash, {
     out: !booting
   }) : /*#__PURE__*/React.createElement(Login, {
@@ -7160,6 +7218,9 @@ function PageLinkDemo() {
     onEnd: () => setCallWith(null)
   }) : ringing ? /*#__PURE__*/React.createElement(CallScreen, {
     p: ringing,
+    me: RECEIVER,
+    directory: directory,
+    roster: roster,
     onAccept: () => accept(ringing.id, true),
     onView: () => {
       silenceRing(ringing);
