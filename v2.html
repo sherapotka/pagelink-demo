@@ -4798,6 +4798,82 @@ const DeclineNotice = ({ onClose }) =>
     }, "Close"));
 
 // ============================================================================
+// HomeScreen — the receiver's phone at rest.
+//
+// Without this, a page could only ever arrive INTO the app, which is not how a
+// physician actually experiences one: the phone is in a pocket, on a home screen,
+// and the page has to break through. Simulation only.
+// ============================================================================
+const HomeScreen = ({ unread, onOpen, now }) => {
+  const t = new Date(now || Date.now());
+  const clock = t.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+  const date = t.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+
+  const app = (label, icon, bg, badge, onClick) => React.createElement("button", {
+    onClick: onClick,
+    "aria-label": badge ? `${label}, ${badge} unread` : label,
+    disabled: !onClick,
+    style: {
+      background: "none", border: "none", padding: 0, cursor: onClick ? "pointer" : "default",
+      display: "flex", flexDirection: "column", alignItems: "center", gap: 5, width: 58
+    }
+  },
+    React.createElement("span", { style: { position: "relative", display: "inline-flex" } },
+      React.createElement("span", {
+        style: {
+          width: 50, height: 50, borderRadius: 13, background: bg, color: "#fff",
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          boxShadow: "0 2px 8px rgba(0,0,0,.28)"
+        }
+      }, React.createElement(Icon, { name: icon, size: 25, sw: 1.9 })),
+      badge > 0 && React.createElement("span", {
+        style: {
+          position: "absolute", top: -5, right: -5, minWidth: 19, height: 19, padding: "0 5px",
+          boxSizing: "border-box", borderRadius: 99, background: "#FF3B30", color: "#fff",
+          fontSize: 11, fontWeight: 700, fontFamily: T.sans, border: "2px solid rgba(0,0,0,.25)",
+          display: "inline-flex", alignItems: "center", justifyContent: "center"
+        }
+      }, badge)),
+    React.createElement("span", {
+      style: { fontSize: 10, color: "rgba(255,255,255,.92)", fontFamily: T.sans, textShadow: "0 1px 3px rgba(0,0,0,.5)" }
+    }, label));
+
+  return React.createElement("div", {
+    style: {
+      position: "absolute", inset: 0, zIndex: 30, overflow: "hidden",
+      background: "linear-gradient(165deg,#1B3A6B 0%,#2E5C8A 42%,#6E4B7E 100%)",
+      display: "flex", flexDirection: "column",
+      padding: "26px 16px calc(14px + env(safe-area-inset-bottom))", boxSizing: "border-box"
+    }
+  },
+    React.createElement("div", { style: { textAlign: "center", color: "#fff", marginBottom: 26 } },
+      React.createElement("div", { style: { fontSize: 12, opacity: .8, letterSpacing: .3 } }, date),
+      React.createElement("div", {
+        style: { fontFamily: T.disp, fontSize: 52, fontWeight: 300, lineHeight: 1.05, letterSpacing: -1.5 }
+      }, clock)),
+    React.createElement("div", {
+      style: { display: "flex", flexWrap: "wrap", gap: 14, justifyContent: "flex-start" }
+    },
+      app("PageLink", "pager", T.blue, unread, onOpen),
+      app("Schedule", "calendar", "#3A7D5C"),
+      app("Charts", "archive", "#8A5A3C"),
+      app("Directory", "users", "#4C5A78")),
+    React.createElement("div", { style: { flex: 1 } }),
+    React.createElement("div", {
+      style: {
+        display: "flex", justifyContent: "center", gap: 14, padding: "10px 8px",
+        borderRadius: 18, background: "rgba(255,255,255,.16)", backdropFilter: "blur(8px)"
+      }
+    }, app("Phone", "phone", "#2FA84F"), app("Messages", "message", "#2E7DE0")),
+    React.createElement("div", {
+      style: {
+        width: 90, height: 4, borderRadius: 99, background: "rgba(255,255,255,.5)",
+        margin: "10px auto 0"
+      }
+    }));
+};
+
+// ============================================================================
 // Reminder call. Fires when a page the physician already received has gone
 // unanswered past its reminder thresholds. Simulation only: no CallKit, no APNs.
 //
@@ -6298,6 +6374,9 @@ function PageLinkDemo() {
   const [sTab, setSTab] = useState("pages"); // sender bottom tab
   const [rTab, setRTab] = useState("pages"); // receiver bottom tab
   const [rxView, setRxView] = useState("pages");
+  // the receiver's phone sits on its home screen until they open PageLink,
+  // so an arriving page has to break through rather than appear in-app
+  const [rxHome, setRxHome] = useState(true);
   const [callWith, setCallWith] = useState(null);
   // --- page alert simulation (frontend demo only; no APNs/CallKit/backend) ---
   const [banner, setBanner] = useState(null);
@@ -6989,7 +7068,17 @@ function PageLinkDemo() {
     soft: true,
     color: T.dim,
     onClick: reset
-  }, "Reset demo"), ENABLE_NOTIFICATION_DEMO && lastAlert && /*#__PURE__*/React.createElement("button", {
+  }, "Reset demo"), ENABLE_NOTIFICATION_DEMO && /*#__PURE__*/React.createElement("button", {
+    onClick: () => { setRxHome(true); setOpenId(null); },
+    title: "Put the receiving phone back on its home screen",
+    style: {
+      background: rxHome ? T.ink : T.surface, color: rxHome ? T.bg : T.dim,
+      border: `1px solid ${rxHome ? T.ink : T.line}`,
+      borderRadius: 8, padding: "6px 11px", fontSize: 11.5, fontWeight: 700,
+      fontFamily: T.sans, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6
+    }
+  }, /*#__PURE__*/React.createElement(Icon, { name: "phone", size: 12 }), "Phone at rest"),
+     ENABLE_NOTIFICATION_DEMO && lastAlert && /*#__PURE__*/React.createElement("button", {
     onClick: () => { setBanner(null); setLockPreview(lastAlert); },
     title: "Simulation only \u00b7 no real notification, call or device alert is sent",
     style: {
@@ -7252,9 +7341,13 @@ function PageLinkDemo() {
         setOpenOutR(null);
       }
     })
-  }, banner && !lockPreview && !declined && /*#__PURE__*/React.createElement(PageNotificationBanner, {
+  }, rxHome && !lockPreview && !declined && !ringing && !callWith && /*#__PURE__*/React.createElement(HomeScreen, {
+    unread: incoming.filter(p => !p.events.some(e => e.type === "ACK") && !p.declined && !p.completedAt && !p.billing).length,
+    now: Date.now(),
+    onOpen: () => setRxHome(false)
+  }), banner && !lockPreview && !declined && /*#__PURE__*/React.createElement(PageNotificationBanner, {
     alert: banner,
-    onView: () => { setBanner(null); setRxView("pages"); setOpenId(banner.id); },
+    onView: () => { setBanner(null); setRxHome(false); setRxView("pages"); setOpenId(banner.id); },
     onAck: () => { const b = banner; setBanner(null); const t = pages.find(x => x.question === b.question && x.to === RECEIVER); if (t) accept(t.id, true); },
     onClose: () => setBanner(null)
   }), declined ? /*#__PURE__*/React.createElement(DeclineNotice, {
@@ -7263,7 +7356,7 @@ function PageLinkDemo() {
     alert: lockPreview,
     sound: alertSound,
     onToggleSound: () => setAlertSound(v => !v),
-    onAccept: () => { setLockPreview(null); setBanner(null); setRxView("pages"); setOpenId(lockPreview.id); },
+    onAccept: () => { setLockPreview(null); setBanner(null); setRxHome(false); setRxView("pages"); setOpenId(lockPreview.id); },
     onDecline: () => setDeclined(true),
     onClose: () => setLockPreview(null)
   }) : callWith ? /*#__PURE__*/React.createElement(InAppCall, {
@@ -7274,7 +7367,7 @@ function PageLinkDemo() {
     me: RECEIVER,
     directory: directory,
     roster: roster,
-    onAccept: () => accept(ringing.id, true),
+    onAccept: () => { setRxHome(false); accept(ringing.id, true); },
     onView: () => {
       silenceRing(ringing);
       setOpenId(ringing.id);
