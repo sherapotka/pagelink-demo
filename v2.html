@@ -1038,6 +1038,12 @@ const DEMO_QUESTIONS = {
   "Radiology": ["Urgent CT head needed · anticoagulated fall", "Discrepancy on prelim read · please clarify", "Contrast reaction protocol advice"],
   "Oncology": ["Neutropenic fever · started tazocin", "Malignant cord compression suspected", "Hypercalcaemia of malignancy · Ca 3.4"]
 };
+// Where the patient physically is, and a coarse age band. Deliberately a BAND,
+// never a date of birth: the roadmap already flags re-identification risk on the
+// free-text question, so this must not narrow it further.
+const DEMO_LOCATIONS = ["ED Bay 4", "ED Bay 7", "ED Resus 1", "Ward 8W · Bed 12", "Ward 6E · Bed 3",
+  "ICU Bed 2", "CCU Bed 5", "OR 3 · Recovery", "Ward 10N · Bed 21", "Day Surgery · Bay 6"];
+const AGE_BANDS = ["Adult", "Adult", "Adult", "Older adult", "Older adult", "Young adult", "Paediatric"];
 const DEMO_PATIENTS = ["Jordan Avery", "Maya Thompson", "Liam O'Brien", "Sofia Ramirez", "Noah Kim", "Emma Larsen", "Ethan Wallace", "Ava Novak", "Lucas Ferreira", "Isla Bennett", "Omar Hassan", "Grace Liu", "Felix Mora", "Nina Petrov", "Sam Whitfield"];
 const DEMO_DECLINES = [["Sender", "Not my service / patient"], ["Sender", "Needs a different specialty"], ["Sender", "Off shift · signed out"]];
 const DEMO_NOTES = ["Stable overnight · plan in chart.", "Family updated at bedside.", "Follow-up imaging booked.", "Discussed with senior · agreed on plan."];
@@ -1094,6 +1100,8 @@ const genDemoPages = () => {
       urgency,
       reason: pick(["New patient", "Follow-up patient", "Phone advice"]),
       idType,
+      location: pick(DEMO_LOCATIONS),
+      ageBand: pick(AGE_BANDS),
       mrn: idType === "PHN" ? String(ri(9000000000, 9899999999)) : String(ri(1000000, 9999999)),
       read: opts.unreadFor ? {
         [opts.unreadFor === from ? to : from]: Date.now()
@@ -4397,11 +4405,36 @@ const ComposerUI = ({ draft, setDraft, roster, directory, services, deviceDark, 
           onChange: e => set({ second: e.target.value }),
           placeholder: "Patient initials (e.g. J.M.)",
           style: {
-            width: "100%", boxSizing: "border-box", height: 44,
+            width: "100%", boxSizing: "border-box", height: 44, marginBottom: S.sm,
             border: `1px solid ${T.line}`, borderRadius: RAD.input, padding: "0 10px",
             fontSize: 16, fontFamily: T.sans, color: T.ink, background: T.surface
           }
-        })),
+        }),
+        h("div", { style: { display: "flex", gap: S.sm } },
+          h("input", {
+            "aria-label": "Patient location", value: draft.location,
+            onChange: e => set({ location: e.target.value }),
+            placeholder: "Location (e.g. ED Bay 4)",
+            style: {
+              flex: 1, minWidth: 0, boxSizing: "border-box", height: 44,
+              border: `1px solid ${T.line}`, borderRadius: RAD.input, padding: "0 10px",
+              fontSize: 16, fontFamily: T.sans, color: T.ink, background: T.surface
+            }
+          }),
+          h("select", {
+            "aria-label": "Patient age band", value: draft.ageBand,
+            onChange: e => set({ ageBand: e.target.value }),
+            style: {
+              width: 122, flexShrink: 0, boxSizing: "border-box", height: 44,
+              border: `1px solid ${T.line}`, borderRadius: RAD.input, padding: "0 8px",
+              fontSize: 16, fontFamily: T.sans, color: draft.ageBand ? T.ink : T.faint,
+              background: T.surface
+            }
+          }, h("option", { value: "" }, "Age band"),
+             ["Paediatric", "Young adult", "Adult", "Older adult"].map(a =>
+               h("option", { key: a, value: a }, a)))),
+        h("div", { style: { fontSize: 12, color: T.faint, marginTop: 5 } },
+          "Optional. An age band, never a date of birth.")),
 
       draft.to && h("div", {
         style: {
@@ -4623,7 +4656,8 @@ const toAlert = p => ({
   urgency: (p.urgency || "routine").toLowerCase(),
   summary: `${p.urgency || "Routine"} ${p.service ? p.service.toLowerCase() + " " : ""}page from ${svcOfName(p.from) || p.from}`,
   question: p.question || "",
-  location: p.location || null,          // not in the data model today; stays null
+  location: p.location || null,
+  ageBand: p.ageBand || null,
   callbackNumber: null,                  // directory numbers are Locating-only by design
   receivedAt: p.sentAt,
   status: "unread",
@@ -4904,6 +4938,13 @@ const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDi
   const ut = tier(p.urgency);
   const stat = p.urgency === "STAT";
 
+  const chip = (label, value, tone) => React.createElement("span", {
+    style: {
+      display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px",
+      borderRadius: 7, background: T.soft, border: `1px solid ${T.line}`,
+      fontSize: 11, fontWeight: 600, color: T.ink, whiteSpace: "nowrap"
+    }
+  }, React.createElement("span", { style: { color: tone, fontWeight: 500 } }, label), value);
   const row = (label, value, tone) => React.createElement("div", {
     style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, padding: "6px 0" }
   }, React.createElement("span", { style: { fontSize: 11, color: T.faint, flexShrink: 0 } }, label),
@@ -4976,7 +5017,11 @@ const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDi
         borderLeft: `3px solid ${ut.c}`, borderRadius: 14, padding: "8px 12px",
         boxShadow: "0 1px 2px rgba(16,36,62,.04)"
       }
-    }, p.escalatedTo && row("Escalated to", p.escalatedTo, T.stat),
+    }, (p.location || p.ageBand) && React.createElement("div", {
+         style: { display: "flex", flexWrap: "wrap", gap: 5, padding: "6px 0 2px" }
+       }, p.location && chip("Location", p.location, T.blue),
+          p.ageBand && chip("Patient", p.ageBand, T.dim)),
+       p.escalatedTo && row("Escalated to", p.escalatedTo, T.stat),
        p.service && row("Service", p.service),
        row("Urgency", p.urgency || "-", stat ? T.stat : p.urgency === "Urgent" ? T.urgent : T.ink),
        row("Reason", p.question || "-"),
@@ -6974,7 +7019,9 @@ function PageLinkDemo() {
     question: "",
     idType: "MRN",
     mrn: "",
-    second: ""
+    second: "",
+    location: "",
+    ageBand: ""
   });
   if (stage !== "app") return /*#__PURE__*/React.createElement("div", {
     style: {
