@@ -449,7 +449,14 @@ const DIV = {
   "Cardiology": "#0E7490",
   "General Surgery": "#7C3AED",
   "Infectious Disease": "#A21CAF",
-  "Plastic Surgery": "#475569"
+  "Plastic Surgery": "#475569",
+  "Neurology": "#0369A1",
+  "Intensive Care": "#BE123C",
+  "Pediatrics": "#0D9488",
+  "Obstetrics & Gynaecology": "#9333EA",
+  "Psychiatry": "#65A30D",
+  "Radiology": "#57534E",
+  "Oncology": "#C2410C"
 };
 const SENDER = "Dr. Yazdani",
   RECEIVER = "Dr. Chen";
@@ -504,7 +511,7 @@ const ROLES = ["1st call · Staff", "2nd call · Staff", "Senior resident"];
 const TITLES = ["Student", "Resident", "Fellow", "Attending", "Other"];
 const STD_TITLES = ["Student", "Resident", "Fellow", "Attending"];
 // ---------- service directory (type-or-pick) ----------
-const SERVICES = ["Neurosurgery", "Cardiology", "Cardiovascular Surgery", "General Surgery", "General Medicine", "Plastic Surgery", "Infectious Disease", "Internal Medicine", "Emergency Medicine", "Orthopedic Surgery", "Nephrology", "Urology", "Anesthesiology"];
+const SERVICES = ["Neurosurgery", "Cardiology", "Cardiovascular Surgery", "General Surgery", "General Medicine", "Plastic Surgery", "Infectious Disease", "Internal Medicine", "Emergency Medicine", "Orthopedic Surgery", "Nephrology", "Urology", "Anesthesiology", "Neurology", "Intensive Care", "Pediatrics", "Obstetrics & Gynaecology", "Psychiatry", "Radiology", "Oncology"];
 // extra physicians for the services that aren't part of the live on-call roster
 const EXTRA_DOCS = {
   "Cardiovascular Surgery": ["Dr. Kovac", "Dr. Bianchi"],
@@ -514,7 +521,14 @@ const EXTRA_DOCS = {
   "Orthopedic Surgery": ["Dr. Halvorsen", "Dr. Mehta"],
   "Nephrology": ["Dr. Sato", "Dr. Abate"],
   "Urology": ["Dr. Cohen", "Dr. Iqbal"],
-  "Anesthesiology": ["Dr. Vance", "Dr. Dubois"]
+  "Anesthesiology": ["Dr. Vance", "Dr. Dubois"],
+  "Neurology": ["Dr. Ferreira", "Dr. Okonkwo", "Dr. Lindqvist"],
+  "Intensive Care": ["Dr. Nakamura", "Dr. Boateng", "Dr. Rossi"],
+  "Pediatrics": ["Dr. Anand", "Dr. Sorensen", "Dr. Mbeki"],
+  "Obstetrics & Gynaecology": ["Dr. Kaur", "Dr. Lombardi", "Dr. Traore"],
+  "Psychiatry": ["Dr. Halston", "Dr. Yilmaz", "Dr. Diaz"],
+  "Radiology": ["Dr. Petrov", "Dr. Nwosu", "Dr. Grant"],
+  "Oncology": ["Dr. Fontaine", "Dr. Sharma", "Dr. Weber"]
 };
 // flat directory of every physician with their service - the source for the people picker & user admin
 const DIRECTORY_SEED = (() => {
@@ -557,6 +571,41 @@ const INITIAL_ROSTER = [{
 }, {
   service: "Plastic Surgery",
   until: "-",
+  oncall: []
+},
+{
+  service: "Neurology",
+  until: "08:00",
+  oncall: ["Dr. Ferreira", "Dr. Okonkwo"]
+},
+{
+  service: "Intensive Care",
+  until: "07:00",
+  oncall: ["Dr. Nakamura", "Dr. Boateng", "Dr. Rossi"]
+},
+{
+  service: "Pediatrics",
+  until: "08:00",
+  oncall: ["Dr. Anand", "Dr. Sorensen"]
+},
+{
+  service: "Obstetrics & Gynaecology",
+  until: "07:30",
+  oncall: ["Dr. Kaur", "Dr. Lombardi", "Dr. Traore"]
+},
+{
+  service: "Psychiatry",
+  until: "09:00",
+  oncall: ["Dr. Halston"]
+},
+{
+  service: "Radiology",
+  until: "08:00",
+  oncall: ["Dr. Petrov", "Dr. Nwosu"]
+},
+{
+  service: "Oncology",
+  until: "17:00",
   oncall: []
 }];
 // each division owns several services; admin schedules at the service level
@@ -943,7 +992,14 @@ const DEMO_QUESTIONS = {
   "Orthopedic Surgery": ["Open tib-fib fracture · OR tonight?", "Hip fracture in 90-year-old, cleared for surgery · please book"],
   "Nephrology": ["K+ 7.1 with ECG changes · urgent dialysis?", "Oliguric AKI on CKD · please assess for RRT"],
   "Urology": ["Obstructed infected kidney · needs urgent decompression", "Gross hematuria with clot retention · please see"],
-  "Anesthesiology": ["Anticipated difficult airway for emergency case", "Epidural request · laboring patient with platelets 80"]
+  "Anesthesiology": ["Anticipated difficult airway for emergency case", "Epidural request · laboring patient with platelets 80"],
+  "Neurology": ["Witnessed seizure, now post-ictal · needs EEG?", "Acute vision loss with headache · ?GCA", "Fluctuating weakness · ?myasthenic crisis"],
+  "Intensive Care": ["Escalating pressor requirement · ICU bed?", "Rising lactate despite fluids · needs review", "Failing NIV · ?intubation tonight"],
+  "Pediatrics": ["Febrile infant 6 weeks · septic workup?", "Bronchiolitis with rising work of breathing", "New murmur in neonate · echo?"],
+  "Obstetrics & Gynaecology": ["Fetal decelerations · needs assessment now", "Post-partum bleeding not settling", "Severe pre-eclampsia · BP 175/110"],
+  "Psychiatry": ["Acute agitation, unsafe on ward · urgent review", "Suicidal ideation with plan · needs assessment", "Delirium vs psychosis · advice"],
+  "Radiology": ["Urgent CT head needed · anticoagulated fall", "Discrepancy on prelim read · please clarify", "Contrast reaction protocol advice"],
+  "Oncology": ["Neutropenic fever · started tazocin", "Malignant cord compression suspected", "Hypercalcaemia of malignancy · Ca 3.4"]
 };
 const DEMO_PATIENTS = ["Jordan Avery", "Maya Thompson", "Liam O'Brien", "Sofia Ramirez", "Noah Kim", "Emma Larsen", "Ethan Wallace", "Ava Novak", "Lucas Ferreira", "Isla Bennett", "Omar Hassan", "Grace Liu", "Felix Mora", "Nina Petrov", "Sam Whitfield"];
 const DEMO_DECLINES = [["Sender", "Not my service / patient"], ["Sender", "Needs a different specialty"], ["Sender", "Off shift · signed out"]];
@@ -1137,7 +1193,7 @@ const genDemoPages = () => {
   });
   // 38 more between other physicians across all divisions
   const kindPool = [];
-  [["billed", 23], ["done", 7], ["accepted", 4], ["declined", 2], ["cancelled", 2]].forEach(([k, n]) => {
+  [["billed", 46], ["done", 18], ["accepted", 12], ["declined", 8], ["cancelled", 6]].forEach(([k, n]) => {
     for (let i = 0; i < n; i++) kindPool.push(k);
   });
   kindPool.sort(() => Math.random() - 0.5);
