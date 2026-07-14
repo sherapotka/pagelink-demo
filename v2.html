@@ -314,7 +314,8 @@ const {
   useState,
   useEffect,
   useMemo,
-  useId
+  useId,
+  useRef
 } = React;
 
 // ---------- design tokens ----------
@@ -4490,6 +4491,207 @@ const SenderDetail = ({
     style: { marginTop: 10, color: T.dim, fontSize: 12, fontWeight: 600 }
   }, "Page cancelled \u00b7 recipient notified."))));
 };
+// ============================================================================
+// PAGE ALERT SIMULATION  (frontend demo only)
+//
+// This is a SIMULATION. Nothing here touches APNs, CallKit, or a backend. No real
+// notification, phone call or vibration is delivered to any device. The lock
+// screen is a PageLink-branded mock rendered inside the demo's phone frame; it
+// deliberately does not copy Apple's interface.
+//
+// Reuses the existing UrgChip, Icon, Avatar and Btn rather than adding new
+// primitives. The notification centre is the existing Pages list (unread dots,
+// urgency, sender, time, ack state already live there), so none is duplicated.
+// ============================================================================
+
+// Feature flag. Demo controls are gated so a production build can drop them by
+// flipping this to false. Off with ?demo=0.
+const ENABLE_NOTIFICATION_DEMO =
+  typeof location !== "undefined" ? new URLSearchParams(location.search).get("demo") !== "0" : true;
+
+// PageAlert: derived from an existing page. `summary` is the PRIVACY-SAFE line
+// used on the lock screen; the clinical question is only exposed after unlock,
+// matching the product's existing "no PHI in push payloads" rule.
+const toAlert = p => ({
+  id: p.id,
+  senderName: p.from,
+  senderDepartment: svcOfName(p.from) || null,
+  service: p.service || null,
+  urgency: (p.urgency || "routine").toLowerCase(),
+  summary: `${p.urgency || "Routine"} ${p.service ? p.service.toLowerCase() + " " : ""}page from ${svcOfName(p.from) || p.from}`,
+  question: p.question || "",
+  location: p.location || null,          // not in the data model today; stays null
+  callbackNumber: null,                  // directory numbers are Locating-only by design
+  receivedAt: p.sentAt,
+  status: "unread",
+  escalationStatus: "none"
+});
+
+// --- PageNotificationBanner: slides down inside the phone -------------------
+const PageNotificationBanner = ({ alert, onView, onAck, onClose }) => {
+  const [paused, setPaused] = useState(false);
+  const stat = alert.urgency === "stat";
+  // onClose is an inline arrow from the parent, and this app re-renders every second
+  // (live clock). Depending on its identity reset the timer on every tick, so the
+  // banner never dismissed. Hold it in a ref and depend only on real state.
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  useEffect(() => {
+    if (stat || paused) return;                        // STAT stays until acknowledged
+    const t = setTimeout(() => closeRef.current(), 6500);  // 5-8s window
+    return () => clearTimeout(t);
+  }, [stat, paused, alert.id]);
+  const tone = stat ? T.stat : alert.urgency === "urgent" ? T.urgent : T.blue;
+  return React.createElement("div", {
+    className: "pl-banner",
+    role: "status", "aria-live": stat ? "assertive" : "polite",
+    onMouseEnter: () => setPaused(true), onMouseLeave: () => setPaused(false),
+    onFocus: () => setPaused(true), onBlur: () => setPaused(false),
+    style: {
+      position: "absolute", top: 8, left: 8, right: 8, zIndex: 40,
+      background: T.surface, border: `1px solid ${stat ? T.stat : T.line}`,
+      borderLeft: `4px solid ${tone}`, borderRadius: 12,
+      boxShadow: "0 6px 20px rgba(16,36,62,.18)", padding: "9px 10px"
+    }
+  },
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 4 } },
+      React.createElement("span", {
+        style: {
+          width: 15, height: 15, borderRadius: 4, background: T.blue, color: "#fff",
+          display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0
+        }
+      }, React.createElement(Icon, { name: "inbox", size: 9, sw: 2.6 })),
+      React.createElement("span", { style: { fontSize: 10, fontWeight: 700, color: T.dim, letterSpacing: .3 } }, "PageLink"),
+      React.createElement("span", { style: { fontSize: 10, color: T.faint, fontFamily: T.mono } }, "· now"),
+      React.createElement("span", { style: { marginLeft: "auto", display: "flex", alignItems: "center", gap: 5 } },
+        React.createElement(UrgChip, { u: alert.urgency === "stat" ? "STAT" : alert.urgency === "urgent" ? "Urgent" : "Routine", small: true }),
+        React.createElement("button", {
+          onClick: onClose, "aria-label": "Dismiss notification",
+          style: {
+            width: 22, height: 22, border: "none", background: "none", color: T.faint,
+            cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center"
+          }
+        }, React.createElement(Icon, { name: "x", size: 12, sw: 2.4 })))),
+    React.createElement("div", { style: { fontSize: 12, fontWeight: 600, color: T.ink, lineHeight: 1.3 } },
+      alert.summary),
+    alert.service && React.createElement("div", { style: { fontSize: 10.5, color: T.faint, marginTop: 1 } }, alert.service),
+    React.createElement("div", {
+      style: { fontSize: 11.5, color: T.dim, marginTop: 3, lineHeight: 1.35, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }
+    }, alert.question),
+    React.createElement("div", { style: { display: "flex", gap: 6, marginTop: 8 } },
+      React.createElement("button", {
+        onClick: onView,
+        style: {
+          flex: 1, minHeight: 32, borderRadius: 8, cursor: "pointer", fontFamily: T.sans,
+          fontSize: 12, fontWeight: 600, background: T.surface, color: T.blue, border: `1px solid ${T.line}`
+        }
+      }, "View"),
+      React.createElement("button", {
+        onClick: onAck,
+        style: {
+          flex: 1, minHeight: 32, borderRadius: 8, cursor: "pointer", fontFamily: T.sans,
+          fontSize: 12, fontWeight: 600, background: tone, color: "#fff", border: `1px solid ${tone}`
+        }
+      }, "Acknowledge")));
+};
+
+// --- IncomingPageLockScreen: PageLink-branded mock, not an Apple copy -------
+const IncomingPageLockScreen = ({ alert, sound, onToggleSound, onAccept, onDecline, onClose }) => {
+  const [secs, setSecs] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setSecs(s => s + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const stat = alert.urgency === "stat";
+  const tone = stat ? "#FF4D6D" : alert.urgency === "urgent" ? "#F5A524" : "#5B9CFF";
+  const clock = new Date(alert.receivedAt).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+  const btn = (bg, label, icon, onClick) => React.createElement("button", {
+    onClick: onClick, "aria-label": label,
+    style: {
+      flex: 1, minHeight: 54, borderRadius: 14, border: "none", cursor: "pointer",
+      background: bg, color: "#fff", fontFamily: T.sans, fontSize: 13, fontWeight: 700,
+      display: "inline-flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3
+    }
+  }, React.createElement(Icon, { name: icon, size: 17, sw: 2.4 }), label);
+  return React.createElement("div", {
+    role: "dialog", "aria-modal": "true", "aria-label": "PageLink incoming clinical page, demo preview",
+    style: {
+      position: "absolute", inset: 0, zIndex: 60, background: "#05080D",
+      display: "flex", flexDirection: "column", padding: 16, boxSizing: "border-box", color: "#fff"
+    }
+  },
+    React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between" } },
+      React.createElement("span", { style: { fontFamily: T.mono, fontSize: 11, color: "rgba(255,255,255,.55)" } }, clock),
+      React.createElement("button", {
+        onClick: onToggleSound, "aria-pressed": sound ? "true" : "false",
+        style: {
+          background: "rgba(255,255,255,.10)", border: "none", color: "#fff", cursor: "pointer",
+          borderRadius: 999, padding: "4px 9px", fontSize: 10, fontWeight: 600, fontFamily: T.sans
+        }
+      }, sound ? "Sound on" : "Sound off")),
+    React.createElement("div", { style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center" } },
+      React.createElement("div", {
+        className: "pl-ring",
+        style: {
+          width: 62, height: 62, borderRadius: 16, background: T.blue, marginBottom: 14,
+          display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0
+        }
+      }, React.createElement(Icon, { name: "inbox", size: 30, sw: 2 })),
+      React.createElement("div", { style: { fontFamily: T.disp, fontSize: 19, fontWeight: 700, letterSpacing: -.4 } }, "PageLink"),
+      React.createElement("div", { style: { fontSize: 12.5, color: "rgba(255,255,255,.62)", marginTop: 2 } }, "Incoming clinical page"),
+      React.createElement("div", {
+        style: {
+          marginTop: 12, padding: "4px 10px", borderRadius: 6, background: tone,
+          color: "#05080D", fontSize: 11, fontWeight: 800, letterSpacing: 1
+        }
+      }, (alert.urgency || "").toUpperCase()),
+      // privacy-safe only: no patient identifiers or clinical question before unlock
+      React.createElement("div", { style: { fontSize: 15, fontWeight: 600, marginTop: 14, lineHeight: 1.4, maxWidth: 250 } },
+        alert.summary),
+      alert.location && React.createElement("div", { style: { fontSize: 12, color: "rgba(255,255,255,.6)", marginTop: 4 } }, alert.location),
+      React.createElement("div", {
+        style: { fontSize: 10.5, color: "rgba(255,255,255,.38)", marginTop: 12, lineHeight: 1.45, maxWidth: 240 }
+      }, "Patient details stay hidden until you open PageLink."),
+      React.createElement("div", { style: { fontFamily: T.mono, fontSize: 10.5, color: "rgba(255,255,255,.35)", marginTop: 8 } },
+        "ringing ", String(Math.floor(secs / 60)).padStart(2, "0"), ":", String(secs % 60).padStart(2, "0"))),
+    React.createElement("div", { style: { display: "flex", gap: 10, marginBottom: 4 } },
+      btn("#E5384F", "Decline", "x", onDecline),
+      btn("#12A66B", "Accept", "check", onAccept)),
+    React.createElement("button", {
+      onClick: onClose,
+      style: {
+        marginTop: 10, background: "none", border: "none", color: "rgba(255,255,255,.4)",
+        fontSize: 10.5, fontFamily: T.sans, cursor: "pointer", padding: 6
+      }
+    }, "Close demo preview"));
+};
+
+// --- Decline confirmation: a declined page is never silently discarded ------
+const DeclineNotice = ({ onClose }) =>
+  React.createElement("div", {
+    role: "status",
+    style: {
+      position: "absolute", inset: 0, zIndex: 60, background: "#05080D", color: "#fff",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      padding: 22, boxSizing: "border-box", textAlign: "center", gap: 10
+    }
+  },
+    React.createElement(Icon, { name: "alert", size: 26, sw: 2, style: { color: T.urgent } }),
+    React.createElement("div", { style: { fontSize: 15, fontWeight: 600 } }, "Page declined"),
+    React.createElement("div", { style: { fontSize: 12, color: "rgba(255,255,255,.62)", lineHeight: 1.5, maxWidth: 240 } },
+      "The page stays in the recipient's list and the sender still sees it as unanswered. It is not discarded."),
+    React.createElement("div", {
+      style: { fontSize: 10.5, color: "rgba(255,255,255,.34)", lineHeight: 1.45, maxWidth: 240 }
+    }, "Demo state. Automatic escalation to the next on-call physician is a pilot-stage feature and is not simulated here."),
+    React.createElement("button", {
+      onClick: onClose,
+      style: {
+        marginTop: 6, background: "rgba(255,255,255,.12)", border: "none", color: "#fff",
+        borderRadius: 10, padding: "9px 16px", fontSize: 12.5, fontWeight: 600,
+        fontFamily: T.sans, cursor: "pointer"
+      }
+    }, "Close"));
+
 const RING_SECONDS = 15;
 const CallScreen = ({
   p,
@@ -5942,6 +6144,12 @@ function PageLinkDemo() {
   const [rTab, setRTab] = useState("pages"); // receiver bottom tab
   const [rxView, setRxView] = useState("pages");
   const [callWith, setCallWith] = useState(null);
+  // --- page alert simulation (frontend demo only; no APNs/CallKit/backend) ---
+  const [banner, setBanner] = useState(null);
+  const [lockPreview, setLockPreview] = useState(null);
+  const [declined, setDeclined] = useState(false);
+  const [alertSound, setAlertSound] = useState(false);
+  const [lastAlert, setLastAlert] = useState(null);
   const [ringDismiss, setRingDismiss] = useState({}); // {pageId: # of ring triggers when last silenced}
   const [deviceDark, setDeviceDark] = useState(false);
   const [dupAlert, setDupAlert] = useState(null);
@@ -6029,6 +6237,14 @@ function PageLinkDemo() {
     t: Date.now(),
     label
   }, ...s]);
+  // raise the in-app banner on the receiving phone when a page arrives
+  const raiseAlert = p => {
+    if (!ENABLE_NOTIFICATION_DEMO) return;
+    if (p.to !== RECEIVER) return;
+    const a = toAlert(p);
+    setLastAlert(a);
+    setBanner(a);
+  };
   const send = (d, from = SENDER) => {
     if (d.urgency === "STAT" && from === SENDER) {
       const active = pages.find(q => q.urgency === "STAT" && q.mrn === d.mrn && q.service === d.service && !q.billing && !q.declined && q.kind !== "broadcast");
@@ -6065,6 +6281,8 @@ function PageLinkDemo() {
       setComposingR(false);
       setDraftR(null);
     }
+    // simulated arrival alert on the receiving phone
+    raiseAlert(Object.assign({}, d, { from: from, sentAt: Date.now(), id: "a" + Date.now() }));
     setDupAlert(null);
   };
   const sendBroadcast = () => setPages(x => [{
@@ -6520,12 +6738,16 @@ function PageLinkDemo() {
     @keyframes plWordIn{from{transform:translateX(-34px);opacity:0}to{transform:translateX(0);opacity:1}}
     @keyframes plBarGrow{from{transform:scaleX(0)}to{transform:scaleX(1)}}
     @keyframes plSplashOut{to{opacity:0;transform:scale(1.015)}}
+    @keyframes plBannerIn{from{transform:translateY(-130%);opacity:0}to{transform:translateY(0);opacity:1}}
+    @keyframes plRing{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+    .pl-banner{animation:plBannerIn .3s cubic-bezier(.16,1,.3,1) both}
+    .pl-ring{animation:plRing 1.6s ease-in-out infinite}
     .pl-w1{animation:plWordIn .58s cubic-bezier(.16,1,.3,1) both}
     .pl-w2{animation:plWordIn .58s cubic-bezier(.16,1,.3,1) .13s both}
     .pl-bar{animation:plBarGrow 1.68s linear both}
     .pl-splash-out{animation:plSplashOut .35s ease both}
     @media (prefers-reduced-motion:reduce){
-      .pl-w1,.pl-w2,.pl-bar,.pl-splash-out{animation-duration:.01ms!important;animation-delay:0ms!important}
+      .pl-w1,.pl-w2,.pl-bar,.pl-splash-out,.pl-banner,.pl-ring{animation-duration:.01ms!important;animation-delay:0ms!important;animation-iteration-count:1!important}
     }`), stage === "boot" ? /*#__PURE__*/React.createElement(Splash, {
     out: !booting
   }) : /*#__PURE__*/React.createElement(Login, {
@@ -6593,7 +6815,23 @@ function PageLinkDemo() {
     soft: true,
     color: T.dim,
     onClick: reset
-  }, "Reset demo"), /*#__PURE__*/React.createElement("button", {
+  }, "Reset demo"), ENABLE_NOTIFICATION_DEMO && lastAlert && /*#__PURE__*/React.createElement("button", {
+    onClick: () => { setBanner(null); setLockPreview(lastAlert); },
+    title: "Simulation only \u00b7 no real notification, call or device alert is sent",
+    style: {
+      background: T.surface, color: T.dim, border: `1px solid ${T.line}`,
+      borderRadius: 8, padding: "6px 11px", fontSize: 11.5, fontWeight: 700,
+      fontFamily: T.sans, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6
+    }
+  }, /*#__PURE__*/React.createElement(Icon, { name: "phone", size: 12 }), "Preview recipient alert"),
+     ENABLE_NOTIFICATION_DEMO && lastAlert && /*#__PURE__*/React.createElement("button", {
+    onClick: () => { setLockPreview(null); setBanner(lastAlert); },
+    style: {
+      background: T.surface, color: T.dim, border: `1px solid ${T.line}`,
+      borderRadius: 8, padding: "6px 11px", fontSize: 11.5, fontWeight: 700,
+      fontFamily: T.sans, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6
+    }
+  }, /*#__PURE__*/React.createElement(Icon, { name: "inbox", size: 12 }), "Replay banner"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setTheme(t => t === "dark" ? "light" : "dark"),
     "aria-label": theme === "dark" ? "Switch to day theme" : "Switch to night theme",
     title: "Night shift is the case this product is really designed for",
@@ -6839,7 +7077,21 @@ function PageLinkDemo() {
         setOpenOutR(null);
       }
     })
-  }, callWith ? /*#__PURE__*/React.createElement(InAppCall, {
+  }, banner && !lockPreview && !declined && /*#__PURE__*/React.createElement(PageNotificationBanner, {
+    alert: banner,
+    onView: () => { setBanner(null); setRxView("pages"); setOpenId(banner.id); },
+    onAck: () => { const b = banner; setBanner(null); const t = pages.find(x => x.question === b.question && x.to === RECEIVER); if (t) accept(t.id, true); },
+    onClose: () => setBanner(null)
+  }), declined ? /*#__PURE__*/React.createElement(DeclineNotice, {
+    onClose: () => { setDeclined(false); setLockPreview(null); }
+  }) : lockPreview ? /*#__PURE__*/React.createElement(IncomingPageLockScreen, {
+    alert: lockPreview,
+    sound: alertSound,
+    onToggleSound: () => setAlertSound(v => !v),
+    onAccept: () => { setLockPreview(null); setBanner(null); setRxView("pages"); setOpenId(lockPreview.id); },
+    onDecline: () => setDeclined(true),
+    onClose: () => setLockPreview(null)
+  }) : callWith ? /*#__PURE__*/React.createElement(InAppCall, {
     withWhom: callWith,
     onEnd: () => setCallWith(null)
   }) : ringing ? /*#__PURE__*/React.createElement(CallScreen, {
