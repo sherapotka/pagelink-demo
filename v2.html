@@ -1171,7 +1171,14 @@ const ICON_PATHS = {
   broadcast: [["circle", null, { cx: 12, cy: 12, r: 2 }], ["path", "M4.93 19.07a10 10 0 0 1 0-14.14m14.14 0a10 10 0 0 1 0 14.14"]],
   play: [["path", "M6 3.5 20 12 6 20.5z"]],
   moon: [["path", "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"]],
-  sun: [["circle", null, { cx: 12, cy: 12, r: 4 }], ["path", "M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"]]
+  sun: [["circle", null, { cx: 12, cy: 12, r: 4 }], ["path", "M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"]],
+  check: [["path", "M20 6 9 17l-5-5"]],
+  search: [["circle", null, { cx: 11, cy: 11, r: 7 }], ["path", "m20 20-3.5-3.5"]],
+  x: [["path", "M18 6 6 18M6 6l12 12"]],
+  alert: [["path", "M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"], ["path", "M12 9v4M12 17h.01"]],
+  back: [["path", "M19 12H5M12 19l-7-7 7-7"]],
+  clock: [["circle", null, { cx: 12, cy: 12, r: 9 }], ["path", "M12 7v5l3 2"]],
+  info: [["circle", null, { cx: 12, cy: 12, r: 9 }], ["path", "M12 16v-4M12 8h.01"]]
 };
 const Icon = ({ name, size = 16, sw = 1.75, style }) => {
   const d = ICON_PATHS[name];
@@ -3784,246 +3791,527 @@ const AdvSearch = ({
 };
 
 // ---------- composer ----------
-const ComposerUI = ({
-  draft,
-  setDraft,
-  roster,
-  directory,
-  services,
-  deviceDark,
-  onSend,
-  onCancel
-}) => {
+// ============================================================================
+// PAGE COMPOSER
+// Refactored from one 240-line inline form into composed, presentational parts.
+// Business logic (readiness, gap routing, identifier validation) is computed once
+// in ComposerUI and passed down; the parts below are presentation only.
+//
+// Written as React.createElement because this project has no build step and no
+// JSX. `h` is a local alias purely to keep the tree readable.
+// ============================================================================
+const h = React.createElement;
+
+// 8pt spacing scale + radii, layered on the existing T tokens.
+const S = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };
+const RAD = { input: 10, row: 12, chip: 8, btn: 12 };
+
+// Call position comes from the roster's oncall array order, which is the real
+// escalation order. Title alone is not enough: an attending is not always first call.
+const CALL_POS = ["Primary call", "Second call", "Escalation"];
+const posLabel = i => CALL_POS[i] || "Backup";
+
+// Minutes until a shift ends. `until` is "HH:MM" and may roll past midnight.
+const minsUntilShiftEnd = until => {
+  if (!until) return null;
+  const parts = String(until).split(":");
+  if (parts.length !== 2) return null;
+  const end = new Date();
+  end.setHours(Number(parts[0]), Number(parts[1]), 0, 0);
+  const now = new Date();
+  if (end <= now) end.setDate(end.getDate() + 1);
+  return Math.round((end - now) / 60000);
+};
+
+// Availability is DERIVED, never invented. The data model has no busy/in-procedure
+// field, so the only honest states are: on call, and on call but ending soon.
+const availabilityOf = until => {
+  const mins = minsUntilShiftEnd(until);
+  if (mins !== null && mins <= 60) {
+    return { tone: "warn", icon: "clock", text: `Shift ending soon · ${until}` };
+  }
+  return { tone: "ok", icon: "check", text: until ? `Available until ${until}` : "Available" };
+};
+
+// --- StatusBadge: icon + text, never colour alone --------------------------
+const StatusBadge = ({ tone, icon, text, size = 11 }) => {
+  const c = tone === "warn" ? T.urgent : tone === "bad" ? T.stat : T.ok;
+  return h("span", {
+    style: { display: "inline-flex", alignItems: "center", gap: S.xs, color: c, fontSize: size, fontWeight: 500 }
+  }, h(Icon, { name: icon, size: size + 1, sw: 2 }), h("span", null, text));
+};
+
+// --- FormSection: label + optional helper + field --------------------------
+const FormSection = ({ label, helper, htmlFor, children, error, style }) =>
+  h("div", { style: Object.assign({ marginBottom: S.lg }, style || {}) },
+    h("label", {
+      htmlFor: htmlFor,
+      style: { display: "block", fontSize: 14, fontWeight: 600, color: T.ink, marginBottom: helper ? 2 : S.sm }
+    }, label),
+    helper && h("div", { style: { fontSize: 12.5, color: T.dim, marginBottom: S.sm } }, helper),
+    children,
+    error && h("div", {
+      role: "alert",
+      style: { display: "flex", alignItems: "center", gap: S.xs, marginTop: 6, fontSize: 12.5, color: T.stat, fontWeight: 500 }
+    }, h(Icon, { name: "alert", size: 12, sw: 2 }), error));
+
+// --- PageHeader: sticky, back + title --------------------------------------
+const PageHeader = ({ onCancel }) =>
+  h("div", {
+    style: {
+      position: "sticky", top: -12, zIndex: 6, background: T.surface,
+      borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center",
+      gap: S.sm, padding: "12px 12px 8px", margin: "-12px -12px 0"
+    }
+  },
+    h("button", {
+      onClick: onCancel, "aria-label": "Cancel and go back",
+      style: {
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: 44, height: 44, marginLeft: -6, background: "none", border: "none",
+        color: T.dim, cursor: "pointer", borderRadius: RAD.chip, flexShrink: 0
+      }
+    }, h(Icon, { name: "back", size: 19, sw: 2 })),
+    h("h1", {
+      style: { flex: 1, margin: 0, fontSize: 17, fontWeight: 600, color: T.ink, letterSpacing: -0.2 }
+    }, "New Page"));
+
+// --- PageSummary: compact, live, sticky under the header -------------------
+const PageSummary = ({ service, to, urgency, gap }) => {
+  const seg = (text, filled, tone) => h("span", {
+    style: {
+      fontSize: 12, fontWeight: filled ? 600 : 400,
+      color: filled ? (tone || T.ink) : T.faint,
+      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: 110
+    }
+  }, text);
+  const arrow = h("span", { "aria-hidden": "true", style: { color: T.faint, fontSize: 11, flexShrink: 0 } }, "→");
+  const uTone = urgency === "STAT" ? T.stat : urgency === "Urgent" ? T.urgent : T.dim;
+  return h("div", {
+    "aria-live": "polite",
+    style: {
+      position: "sticky", top: 52, zIndex: 5, background: T.bg,
+      borderBottom: `1px solid ${T.line}`, display: "flex", alignItems: "center",
+      gap: 6, padding: "8px 12px", margin: "0 -12px", minHeight: 34, boxSizing: "border-box"
+    }
+  },
+    seg(service || "Service", !!service), arrow,
+    seg(gap ? "Locating" : (to || "Recipient"), !!(to || gap)), arrow,
+    seg(urgency || "Urgency", !!urgency, uTone));
+};
+
+// --- ServiceCombobox -------------------------------------------------------
+const ServiceCombobox = ({ value, services, onPick, onClear }) => {
+  const [q, setQ] = useState("");
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const matches = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    if (!t) return services.slice(0, 8);
+    return services.filter(x => x.toLowerCase().includes(t)).slice(0, 8);
+  }, [q, services]);
+  const commit = name => { onPick(name); setQ(""); setOpen(false); setActive(0); };
+  const onKey = e => {
+    if (!open) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setActive(i => Math.min(i + 1, matches.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setActive(i => Math.max(i - 1, 0)); }
+    else if (e.key === "Enter" && matches[active]) { e.preventDefault(); commit(matches[active]); }
+    else if (e.key === "Escape") { setOpen(false); }
+  };
+  const field = {
+    width: "100%", boxSizing: "border-box", border: `1px solid ${T.line}`,
+    borderRadius: RAD.input, padding: "0 34px 0 32px", height: 44,
+    fontSize: 16, fontFamily: T.sans, color: T.ink, background: T.surface
+  };
+  return h("div", { style: { position: "relative" } },
+    h("span", {
+      "aria-hidden": "true",
+      style: { position: "absolute", left: 10, top: 13, color: T.faint, pointerEvents: "none" }
+    }, h(Icon, { name: "search", size: 16 })),
+    h("input", {
+      id: "svc-input", type: "text", role: "combobox",
+      "aria-expanded": open ? "true" : "false", "aria-controls": "svc-listbox",
+      "aria-autocomplete": "list", autoComplete: "off",
+      value: value || q,
+      placeholder: "Search services",
+      onFocus: () => setOpen(true),
+      onBlur: () => setTimeout(() => setOpen(false), 120),
+      onKeyDown: onKey,
+      onChange: e => { if (value) onClear(); setQ(e.target.value); setOpen(true); setActive(0); },
+      style: field
+    }),
+    value && h("button", {
+      onClick: () => { onClear(); setQ(""); }, "aria-label": "Clear service",
+      style: {
+        position: "absolute", right: 4, top: 4, width: 36, height: 36, background: "none",
+        border: "none", color: T.faint, cursor: "pointer", display: "inline-flex",
+        alignItems: "center", justifyContent: "center", borderRadius: RAD.chip
+      }
+    }, h(Icon, { name: "x", size: 15, sw: 2 })),
+    open && !value && h("ul", {
+      id: "svc-listbox", role: "listbox",
+      style: {
+        position: "absolute", left: 0, right: 0, top: 48, zIndex: 20, margin: 0,
+        padding: 4, listStyle: "none", background: T.surface, border: `1px solid ${T.line}`,
+        borderRadius: RAD.input, boxShadow: T.shadow, maxHeight: 188, overflowY: "auto"
+      }
+    }, matches.length === 0
+      ? h("li", { style: { padding: "10px 8px", fontSize: 13, color: T.dim } }, `No services match “${q}”`)
+      : matches.map((m, i) => h("li", {
+          key: m, role: "option", "aria-selected": i === active ? "true" : "false",
+          onMouseDown: e => { e.preventDefault(); commit(m); },
+          onMouseEnter: () => setActive(i),
+          style: {
+            padding: "10px 8px", fontSize: 14, color: T.ink, cursor: "pointer",
+            borderRadius: RAD.chip, background: i === active ? T.blueSoft : "transparent",
+            minHeight: 40, display: "flex", alignItems: "center"
+          }
+        }, m))));
+};
+
+// --- PhysicianOption: compact ~72px row ------------------------------------
+const PhysicianOption = ({ name, title, position, until, selected, onSelect, index }) => {
+  const av = availabilityOf(until);
+  return h("div", {
+    role: "option", "aria-selected": selected ? "true" : "false", tabIndex: 0,
+    onClick: onSelect,
+    onKeyDown: e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(); } },
+    style: {
+      display: "flex", alignItems: "center", gap: 10, minHeight: 64, padding: "5px 10px",
+      marginBottom: 6, borderRadius: RAD.row, cursor: "pointer", boxSizing: "border-box",
+      background: selected ? T.blueSoft : T.surface,
+      border: `${selected ? 1.5 : 1}px solid ${selected ? T.blue : T.line}`
+    }
+  },
+    h(Avatar, { name: name, size: 34, bg: selected ? T.blue : T.soft, fg: selected ? "#fff" : T.dim, fontSize: 13 }),
+    h("div", { style: { flex: 1, minWidth: 0 } },
+      h("div", { style: { fontSize: 15, fontWeight: 600, color: T.ink, lineHeight: "18px" } }, name),
+      h("div", { style: { fontSize: 12.5, color: T.dim, lineHeight: "16px", marginTop: 1 } },
+        title || "Physician", " · ",
+        h("span", { style: { color: selected ? T.blue : T.dim, fontWeight: 600 } }, position)),
+      h("div", { style: { marginTop: 1, lineHeight: "14px" } }, h(StatusBadge, av))),
+    h("span", {
+      "aria-hidden": "true",
+      style: {
+        width: 22, height: 22, borderRadius: 99, flexShrink: 0,
+        border: selected ? "none" : `1.5px solid ${T.line}`,
+        background: selected ? T.blue : "transparent", color: "#fff",
+        display: "inline-flex", alignItems: "center", justifyContent: "center"
+      }
+    }, selected && h(Icon, { name: "check", size: 13, sw: 3 })));
+};
+
+// --- OnCallTeam ------------------------------------------------------------
+const OnCallTeam = ({ service, until, members, selected, onSelect, loading }) => {
+  if (loading) {
+    return h("div", { style: { padding: "10px 0" } }, [0, 1, 2].map(i => h("div", {
+      key: i, "aria-hidden": "true",
+      style: { height: 68, marginBottom: 6, borderRadius: RAD.row, background: T.soft, opacity: 1 - i * 0.22 }
+    })));
+  }
+  return h("div", null,
+    h("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: S.sm, marginBottom: S.sm } },
+      h("h2", { style: { margin: 0, fontSize: 14, fontWeight: 600, color: T.ink } }, "On call now"),
+      h("span", { style: { fontSize: 12, color: T.faint } }, service, until ? ` · Until ${until}` : "")),
+    members.length === 0
+      ? h("div", {
+          role: "status",
+          style: {
+            display: "flex", gap: S.sm, padding: 12, borderRadius: RAD.row,
+            background: T.urgentSoft, border: `1px solid ${T.urgent}`
+          }
+        }, h(Icon, { name: "alert", size: 15, sw: 2, style: { color: T.urgent, marginTop: 1, flexShrink: 0 } }),
+           h("div", { style: { fontSize: 12.5, color: T.ink, lineHeight: 1.4 } },
+             h("strong", { style: { fontWeight: 600 } }, "No one is on call for ", service, "."),
+             " This page will be routed to Locating."))
+      : h("div", { role: "listbox", "aria-label": `On-call physicians for ${service}` },
+          members.map((m, i) => h(PhysicianOption, {
+            key: m.name, index: i, name: m.name, title: m.title,
+            position: posLabel(i), until: until,
+            selected: selected === m.name, onSelect: () => onSelect(m.name)
+          }))));
+};
+
+// --- ConsultTypeSelector: chip group ---------------------------------------
+const ConsultTypeSelector = ({ value, onChange, options }) =>
+  h("div", { role: "radiogroup", "aria-label": "Consult type", style: { display: "flex", flexWrap: "wrap", gap: S.sm } },
+    options.map(o => {
+      const on = value === o;
+      return h("button", {
+        key: o, role: "radio", "aria-checked": on ? "true" : "false",
+        onClick: () => onChange(o),
+        style: {
+          minHeight: 44, padding: "0 14px", borderRadius: RAD.chip, cursor: "pointer",
+          fontSize: 14, fontFamily: T.sans, fontWeight: on ? 600 : 400,
+          background: on ? T.blue : T.surface, color: on ? "#fff" : T.dim,
+          border: `1px solid ${on ? T.blue : T.line}`,
+          display: "inline-flex", alignItems: "center", gap: 6
+        }
+      }, on && h(Icon, { name: "check", size: 13, sw: 3 }), o);
+    }));
+
+// --- UrgencySelector: segmented, never colour alone ------------------------
+const UrgencySelector = ({ value, onChange }) => {
+  const TONES = { Routine: T.dim, Urgent: T.urgent, STAT: T.stat };
+  return h("div", null,
+    h("div", {
+      role: "radiogroup", "aria-label": "Urgency",
+      style: { display: "flex", gap: 0, border: `1px solid ${T.line}`, borderRadius: RAD.input, overflow: "hidden" }
+    }, ["Routine", "Urgent", "STAT"].map((u, i) => {
+      const on = value === u;
+      const tone = TONES[u];
+      return h("button", {
+        key: u, role: "radio", "aria-checked": on ? "true" : "false",
+        onClick: () => onChange(u),
+        style: {
+          flex: 1, minHeight: 44, cursor: "pointer", fontFamily: T.sans, fontSize: 13.5,
+          fontWeight: on ? 700 : 500,
+          background: on ? tone : "transparent",
+          color: on ? "#fff" : T.dim,
+          border: "none",
+          borderLeft: i === 0 ? "none" : `1px solid ${on ? tone : T.line}`,
+          display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5
+        }
+      }, on && h(Icon, { name: "check", size: 12, sw: 3 }), u);
+    })),
+    value === "STAT" && h("div", {
+      role: "status",
+      style: {
+        display: "flex", gap: S.sm, marginTop: S.sm, padding: "9px 10px",
+        borderRadius: RAD.chip, background: T.statSoft, border: `1px solid ${T.stat}`
+      }
+    }, h(Icon, { name: "alert", size: 14, sw: 2, style: { color: T.stat, marginTop: 1, flexShrink: 0 } }),
+       h("span", { style: { fontSize: 12.5, color: T.ink, lineHeight: 1.4 } },
+         "STAT pages are intended for immediate clinical attention.")));
+};
+
+// --- ClinicalQuestionField -------------------------------------------------
+const ClinicalQuestionField = ({ value, onChange, isInquiry }) =>
+  h("textarea", {
+    id: "clinical-question", rows: 4, value: value,
+    onChange: e => onChange(e.target.value),
+    placeholder: isInquiry
+      ? "What do you need to ask the on-call physician?"
+      : "Briefly describe the clinical concern, relevant findings, and the question for the receiving physician.",
+    style: {
+      width: "100%", boxSizing: "border-box", minHeight: 96, resize: "vertical",
+      border: `1px solid ${T.line}`, borderRadius: RAD.input, padding: 10,
+      fontSize: 16, lineHeight: 1.4, fontFamily: T.sans, color: T.ink, background: T.surface
+    }
+  });
+
+// --- StickySubmitBar -------------------------------------------------------
+const StickySubmitBar = ({ ready, missing, urgency, to, gap, sending, onSend }) => {
+  // STAT is an acronym, not a word: never lowercase it
+  const uWord = urgency === "STAT" ? "STAT" : String(urgency || "").toLowerCase();
+  const label = sending ? "Sending page…"
+    : ready ? `Send ${uWord} page to ${gap ? "Locating" : to}`
+    : "Send page";
+  const tone = urgency === "STAT" ? T.stat : urgency === "Urgent" ? T.urgent : T.blue;
+  return h("div", {
+    style: {
+      position: "sticky", bottom: -12, zIndex: 6, background: T.surface,
+      borderTop: `1px solid ${T.line}`, padding: "10px 12px 12px",
+      margin: `${S.md}px -12px -12px`
+    }
+  },
+    !ready && missing.length > 0 && h("div", {
+      id: "send-missing",
+      style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 8, fontSize: 12.5, color: T.dim }
+    }, h(Icon, { name: "info", size: 13, sw: 2, style: { flexShrink: 0 } }),
+       h("span", null, "Still needed: ", missing.join(", "))),
+    h("button", {
+      onClick: onSend, disabled: !ready || sending,
+      "aria-describedby": !ready ? "send-missing" : undefined,
+      style: {
+        width: "100%", minHeight: 48, borderRadius: RAD.btn, cursor: ready && !sending ? "pointer" : "not-allowed",
+        fontFamily: T.sans, fontSize: 15, fontWeight: 600, letterSpacing: .1,
+        // disabled keeps readable contrast rather than fading out
+        background: ready ? tone : T.soft,
+        color: ready ? "#fff" : T.dim,
+        border: `1px solid ${ready ? tone : T.line}`,
+        display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7,
+        overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis", padding: "0 12px"
+      }
+    }, urgency === "STAT" && ready && !sending && h(Icon, { name: "alert", size: 15, sw: 2.4 }), label));
+};
+
+// --- ComposerUI: logic lives here, parts above are presentation -------------
+const ComposerUI = ({ draft, setDraft, roster, directory, services, deviceDark, onSend, onCancel }) => {
+  const [sending, setSending] = useState(false);
+  const [attempted, setAttempted] = useState(false);
+  const [rq, setRq] = useState("");
+
   const r = draft.service ? roster.find(x => x.service === draft.service) : null;
   const isInquiry = draft.reason === "General inquiry";
   const isPHN = draft.idType === "PHN";
   const idOK = isPHN ? /^\d{10}$/.test(draft.mrn) : /^\d{6,8}$/.test(draft.mrn);
-  // service is optional: a page is ready with a chosen recipient, or a service that has no live coverage (routes to Locating)
-  const ready = (draft.to || draft.service && r?.oncall.length === 0) && draft.urgency && draft.reason && draft.question && (isInquiry || idOK && draft.second);
-  const inp = {
-    width: "100%",
-    boxSizing: "border-box",
-    border: `1px solid ${T.line}`,
-    borderRadius: 8,
-    padding: "7px 9px",
-    fontSize: 12,
-    fontFamily: T.sans,
-    marginBottom: 6,
-    color: T.ink
+  const gap = !!(draft.service && r && r.oncall.length === 0);
+  // unchanged from the original: a page is ready with a chosen recipient, or a
+  // service with no live coverage (which routes to Locating)
+  const ready = (draft.to || gap) && draft.urgency && draft.reason && draft.question &&
+                (isInquiry || (idOK && draft.second));
+
+  const set = patch => setDraft(d => Object.assign({}, d, patch));
+  const titleOf = name => (directory.find(x => x.name === name) || {}).title;
+
+  // choosing a service must never silently discard typed clinical text
+  const pickService = name => {
+    const rr = roster.find(x => x.service === name);
+    const stillValid = draft.to && rr && rr.oncall.indexOf(draft.to) >= 0;
+    set({ service: name, to: stillValid ? draft.to : "" });
   };
-  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Back, {
-    onClick: onCancel
-  }, "\u2190 Cancel"), /*#__PURE__*/React.createElement(Sec, null, "1 \xB7 SERVICE \xB7 optional \xB7 or page a person directly"), /*#__PURE__*/React.createElement(Combo, {
-    placeholder: "Search services (type “ge” → General Surgery, General Medicine…)",
-    value: draft.service,
-    options: services.map(s => ({
-      value: s,
-      label: s,
-      dot: divColor(s)
-    })),
-    onPick: o => setDraft({
-      ...draft,
-      service: o.value,
-      to: ""
-    })
-  }), /*#__PURE__*/React.createElement(Sec, null, "2 \xB7 WHO \xB7 type or pick"), /*#__PURE__*/React.createElement(Combo, {
-    placeholder: "Search physicians by name or service",
-    value: draft.to,
-    options: directory.map(d => ({
-      value: d.name,
-      label: `${d.title} · ${d.name}`,
-      meta: d.service,
-      service: d.service,
-      dot: divColor(d.service)
-    })),
-    onPick: o => setDraft({
-      ...draft,
-      to: o.value,
-      service: o.service
-    })
-  }), r && r.oncall.length === 0 && /*#__PURE__*/React.createElement(Note, {
-    warn: true
-  }, "No coverage scheduled. PageLink routes this to Locating live · you keep a live status."), r && r.oncall.length > 0 && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Sec, null, "ON CALL NOW \xB7 ", draft.service, " (until ", r.until, ") \xB7 tap"), r.oncall.map((name, i) => {
-    const dark = name === RECEIVER && deviceDark,
-      sel = draft.to === name,
-      dTitle = (directory.find(d => d.name === name) || {}).title;
-    return /*#__PURE__*/React.createElement("div", {
-      key: name,
-      onClick: () => setDraft({
-        ...draft,
-        to: name
-      }),
-      style: {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        cursor: "pointer",
-        background: sel ? T.blueSoft : T.surface,
-        border: `1.5px solid ${sel ? T.blue : T.line}`,
-        borderRadius: 8,
-        padding: "8px 10px",
-        marginBottom: 5
-      }
-    }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 12.5,
-        fontWeight: 600,
-        color: T.ink,
-        display: "flex",
-        alignItems: "center",
-        gap: 6
-      }
-    }, dTitle ? /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 9.5,
-        fontWeight: 700,
-        color: T.blue,
-        background: T.blueSoft,
-        borderRadius: 5,
-        padding: "1px 5px",
-        letterSpacing: 0.3
-      }
-    }, dTitle) : null, name, i === 0 ? /*#__PURE__*/React.createElement("span", {
-      style: {
-        fontSize: 9,
-        fontWeight: 800,
-        color: T.ok,
-        background: T.okSoft,
-        borderRadius: 5,
-        padding: "1px 5px",
-        letterSpacing: 0.3
-      }
-    }, "1st call") : null), /*#__PURE__*/React.createElement("div", {
-      style: {
-        fontSize: 10.5,
-        color: dark ? T.urgent : T.dim
-      }
-    }, dark ? "⚠ device unreachable" : i === 0 ? "1st call · on call" : "On call")), /*#__PURE__*/React.createElement("span", {
-      style: {
-        width: 9,
-        height: 9,
-        borderRadius: 99,
-        background: dark ? T.urgent : T.ok
-      }
-    }));
-  })), (draft.to || r?.oncall.length === 0) && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Sec, null, "3 \xB7 CONSULT TYPE"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "grid",
-      gridTemplateColumns: "1fr 1fr",
-      gap: 6
-    }
-  }, REASONS.map(q => /*#__PURE__*/React.createElement(Btn, {
-    key: q,
-    sm: true,
-    full: true,
-    soft: draft.reason !== q,
-    onClick: () => setDraft({
-      ...draft,
-      reason: q
-    })
-  }, q))), isInquiry && /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 10.5,
-      color: T.faint,
-      marginTop: 4
-    }
-  }, "General inquiry isn't about a specific patient · no patient identifiers required."), /*#__PURE__*/React.createElement(Sec, null, "4 \xB7 URGENCY"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 5
-    }
-  }, ["Routine", "Urgent", "STAT"].map(u => /*#__PURE__*/React.createElement(Btn, {
-    key: u,
-    sm: true,
-    full: true,
-    soft: draft.urgency !== u,
-    color: tier(u).c,
-    onClick: () => setDraft({
-      ...draft,
-      urgency: u
-    })
-  }, u))), /*#__PURE__*/React.createElement(Sec, null, "5 \xB7 CLINICAL QUESTION"), /*#__PURE__*/React.createElement("textarea", {
-    style: {
-      ...inp,
-      resize: "none"
-    },
-    rows: 2,
-    placeholder: isInquiry ? "What do you need to ask the on-call physician?" : "Why are you paging?",
-    value: draft.question,
-    onChange: e => setDraft({
-      ...draft,
-      question: e.target.value
-    })
-  }), !isInquiry && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Sec, null, "6 \xB7 PATIENT"), /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex",
-      gap: 5,
-      marginBottom: 6
-    }
-  }, ["MRN", "PHN"].map(t => /*#__PURE__*/React.createElement(Btn, {
-    key: t,
-    sm: true,
-    full: true,
-    soft: (draft.idType || "MRN") !== t,
-    color: T.blue,
-    onClick: () => setDraft({
-      ...draft,
-      idType: t
-    })
-  }, t))), /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 10,
-      color: T.faint,
-      marginBottom: 6
-    }
-  }, isPHN ? "PHN auto-fills the health card number on the billing claim." : "MRN auto-fills the MRN on the billing claim."), /*#__PURE__*/React.createElement("input", {
-    style: {
-      ...inp,
-      fontFamily: T.mono
-    },
-    inputMode: "numeric",
-    placeholder: isPHN ? "PHN · numeric (10 digits)" : "MRN · numeric (6-8 digits)",
-    value: draft.mrn,
-    onChange: e => setDraft({
-      ...draft,
-      mrn: e.target.value.replace(/\D/g, "").slice(0, isPHN ? 10 : 8)
-    })
-  }), draft.mrn && !idOK && /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 10,
-      color: T.stat,
-      marginTop: -2,
-      marginBottom: 6
-    }
-  }, isPHN ? "PHN must be 10 digits." : "MRN must be 6-8 digits."), /*#__PURE__*/React.createElement("input", {
-    style: {
-      ...inp,
-      textTransform: "uppercase"
-    },
-    maxLength: 3,
-    placeholder: "Patient initials (e.g. J.M.)",
-    value: draft.second,
-    onChange: e => setDraft({
-      ...draft,
-      second: e.target.value.toUpperCase().slice(0, 4)
-    })
-  })), /*#__PURE__*/React.createElement(Btn, {
-    full: true,
-    disabled: !ready,
-    color: draft.urgency ? tier(draft.urgency).c : T.blue,
-    onClick: () => {
-      const base = isInquiry ? {
-        ...draft,
-        mrn: "",
-        second: ""
-      } : draft;
-      onSend(r && r.oncall.length === 0 ? {
-        ...base,
-        to: null
-      } : base);
-    }
-  }, "Send page")));
+
+  const members = (r ? r.oncall : []).map(n => ({ name: n, title: titleOf(n) }));
+
+  const searchHits = useMemo(() => {
+    const t = rq.trim().toLowerCase();
+    if (!t) return [];
+    return directory.filter(d => {
+      const pos = r && r.oncall.indexOf(d.name) >= 0 ? posLabel(r.oncall.indexOf(d.name)) : "";
+      return [d.name, d.title, d.service, pos].filter(Boolean).join(" ").toLowerCase().includes(t);
+    }).slice(0, 6);
+  }, [rq, directory, r]);
+
+  const missing = [];
+  if (!draft.to && !gap) missing.push("recipient");
+  if (!draft.reason) missing.push("consult type");
+  if (!draft.urgency) missing.push("urgency");
+  if (!draft.question) missing.push("clinical question");
+  if (!isInquiry && !idOK) missing.push(isPHN ? "a valid PHN" : "a valid MRN");
+  if (!isInquiry && !draft.second) missing.push("patient initials");
+
+  const submit = () => {
+    setAttempted(true);
+    if (!ready || sending) return;   // guards against double submission
+    setSending(true);
+    // preserved from the original: a general inquiry carries no patient identifiers,
+    // and a service with no live coverage sends with to=null so it routes to Locating.
+    const base = isInquiry ? Object.assign({}, draft, { mrn: "", second: "" }) : draft;
+    onSend(gap ? Object.assign({}, base, { to: null }) : base);
+  };
+
+  const selectedTitle = draft.to ? titleOf(draft.to) : null;
+  const selectedPos = r && draft.to ? posLabel(r.oncall.indexOf(draft.to)) : null;
+
+  return h("div", null,
+    h(PageHeader, { onCancel: onCancel }),
+    h(PageSummary, { service: draft.service, to: draft.to, urgency: draft.urgency, gap: gap }),
+    h("div", { style: { maxWidth: 560, margin: "0 auto", padding: `${S.md}px 0 0` } },
+
+      h(FormSection, { label: "Service", helper: "Optional when paging a specific person", htmlFor: "svc-input" },
+        h(ServiceCombobox, {
+          value: draft.service, services: services,
+          onPick: pickService, onClear: () => set({ service: "" })
+        })),
+
+      h(FormSection, { label: "Recipient", htmlFor: "recip-input" },
+        h("div", { style: { position: "relative", marginBottom: S.md } },
+          h("span", {
+            "aria-hidden": "true",
+            style: { position: "absolute", left: 10, top: 13, color: T.faint, pointerEvents: "none" }
+          }, h(Icon, { name: "search", size: 16 })),
+          h("input", {
+            id: "recip-input", type: "text", autoComplete: "off",
+            value: rq, onChange: e => setRq(e.target.value),
+            placeholder: "Search by name, role or service",
+            style: {
+              width: "100%", boxSizing: "border-box", border: `1px solid ${T.line}`,
+              borderRadius: RAD.input, padding: "0 10px 0 32px", height: 44,
+              fontSize: 16, fontFamily: T.sans, color: T.ink, background: T.surface
+            }
+          })),
+        rq.trim() && h("div", { style: { marginBottom: S.md } },
+          searchHits.length === 0
+            ? h("div", { style: { fontSize: 13, color: T.dim, padding: "4px 2px" } }, `No physicians match “${rq}”`)
+            : h("div", { role: "listbox", "aria-label": "Search results" }, searchHits.map(d =>
+                h(PhysicianOption, {
+                  key: d.name, name: d.name, title: d.title,
+                  position: r && r.oncall.indexOf(d.name) >= 0 ? posLabel(r.oncall.indexOf(d.name)) : d.service,
+                  until: r && r.oncall.indexOf(d.name) >= 0 ? r.until : null,
+                  selected: draft.to === d.name,
+                  onSelect: () => { set({ to: d.name, service: draft.service || d.service }); setRq(""); }
+                })))),
+        draft.service && h(OnCallTeam, {
+          service: draft.service, until: r ? r.until : null, members: members,
+          selected: draft.to, onSelect: n => set({ to: n })
+        }),
+        !draft.service && !rq.trim() && h("div", {
+          style: { fontSize: 12.5, color: T.faint, padding: "2px 2px" }
+        }, "Choose a service to see who is on call, or search for a physician by name.")),
+
+      h(FormSection, { label: "Consult type" },
+        h(ConsultTypeSelector, { value: draft.reason, onChange: v => set({ reason: v }), options: REASONS })),
+
+      h(FormSection, { label: "Urgency" },
+        h(UrgencySelector, { value: draft.urgency, onChange: v => set({ urgency: v }) })),
+
+      h(FormSection, {
+        label: "Clinical question", htmlFor: "clinical-question",
+        error: attempted && !draft.question ? "A clinical question is required." : null
+      }, h(ClinicalQuestionField, {
+        value: draft.question, onChange: v => set({ question: v }), isInquiry: isInquiry
+      })),
+
+      !isInquiry && h(FormSection, {
+        label: "Patient",
+        error: attempted && !idOK && draft.mrn
+          ? (isPHN ? "PHN must be 10 digits." : "MRN must be 6–8 digits.") : null
+      },
+        h("div", { role: "radiogroup", "aria-label": "Identifier type", style: { display: "flex", gap: S.sm, marginBottom: S.sm } },
+          ["MRN", "PHN"].map(t => {
+            const on = draft.idType === t;
+            return h("button", {
+              key: t, role: "radio", "aria-checked": on ? "true" : "false",
+              onClick: () => set({ idType: t, mrn: "" }),
+              style: {
+                minHeight: 44, padding: "0 16px", borderRadius: RAD.chip, cursor: "pointer",
+                fontSize: 14, fontFamily: T.sans, fontWeight: on ? 600 : 400,
+                background: on ? T.blue : T.surface, color: on ? "#fff" : T.dim,
+                border: `1px solid ${on ? T.blue : T.line}`
+              }
+            }, t);
+          })),
+        h("input", {
+          "aria-label": isPHN ? "Patient PHN" : "Patient MRN",
+          inputMode: "numeric", value: draft.mrn,
+          onChange: e => set({ mrn: e.target.value.replace(/\D/g, "") }),
+          placeholder: isPHN ? "PHN · 10 digits" : "MRN · 6–8 digits",
+          style: {
+            width: "100%", boxSizing: "border-box", height: 44, marginBottom: S.sm,
+            border: `1px solid ${attempted && !idOK && draft.mrn ? T.stat : T.line}`,
+            borderRadius: RAD.input, padding: "0 10px", fontSize: 16,
+            fontFamily: T.mono, color: T.ink, background: T.surface
+          }
+        }),
+        h("input", {
+          "aria-label": "Patient initials", value: draft.second,
+          onChange: e => set({ second: e.target.value }),
+          placeholder: "Patient initials (e.g. J.M.)",
+          style: {
+            width: "100%", boxSizing: "border-box", height: 44,
+            border: `1px solid ${T.line}`, borderRadius: RAD.input, padding: "0 10px",
+            fontSize: 16, fontFamily: T.sans, color: T.ink, background: T.surface
+          }
+        })),
+
+      draft.to && h("div", {
+        style: {
+          display: "flex", gap: S.sm, alignItems: "flex-start", padding: 10, marginBottom: S.md,
+          borderRadius: RAD.row, background: T.soft, border: `1px solid ${T.line}`
+        }
+      }, h(Icon, { name: "user", size: 14, sw: 2, style: { color: T.dim, marginTop: 2, flexShrink: 0 } }),
+         h("div", { style: { fontSize: 12.5, color: T.dim, lineHeight: 1.45 } },
+           "Paging ", h("strong", { style: { color: T.ink, fontWeight: 600 } }, draft.to),
+           selectedTitle ? ` · ${selectedTitle}` : "",
+           selectedPos ? ` · ${selectedPos}` : "")),
+
+      h(StickySubmitBar, {
+        ready: ready, missing: missing, urgency: draft.urgency,
+        to: draft.to, gap: gap, sending: sending, onSend: submit
+      })));
 };
+
 const SenderDetail = ({
   p,
   onBack,
