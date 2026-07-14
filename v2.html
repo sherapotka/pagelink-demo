@@ -2,8 +2,7 @@
 <html lang="en"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>PageLink - Product Simulation</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%227%22%20fill%3D%22%231E62E0%22/%3E%3Cg%20fill%3D%22none%22%20stroke%3D%22%23fff%22%20stroke-width%3D%222.2%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22M23%2015h-4l-1.3%202h-3.4L13%2015H9%22/%3E%3Cpath%20d%3D%22M11.3%209.4%209%2015v4a1.6%201.6%200%200%200%201.6%201.6h10.8A1.6%201.6%200%200%200%2023%2019v-4l-2.3-5.6A1.6%201.6%200%200%200%2019.2%208.4h-6.4a1.6%201.6%200%200%200-1.5%201z%22/%3E%3C/g%3E%3C/svg%3E">
-<style>body{margin:0;font-family:-apple-system,Segoe UI,sans-serif}#err{font-family:monospace;color:#b00;padding:20px;white-space:pre-wrap}</style>
+<style>body{margin:0;font-family:-apple-system,Segoe UI,sans-serif;font-weight:400;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}#err{font-family:monospace;color:#b00;padding:20px;white-space:pre-wrap}</style>
 </head><body>
 <div id="root"></div><div id="err"></div>
 <script>/**
@@ -356,7 +355,7 @@ const T = {
   mono: "'JetBrains Mono', ui-monospace, Menlo, monospace",
   sans: "'Inter', -apple-system, 'Segoe UI', sans-serif",
   disp: "'Plus Jakarta Sans', 'Inter', sans-serif",
-  shadow: "0 1px 2px rgba(16,36,62,.05), 0 8px 24px rgba(16,36,62,.07)"
+  shadow: "0 1px 2px rgba(16,36,62,.04)"
 };
 const tier = u => u === "STAT" ? {
   c: T.stat,
@@ -1189,11 +1188,12 @@ const Pill = ({
   style: {
     background: bg,
     color: c,
-    borderRadius: 999,
-    padding: "2px 9px",
-    fontSize: 10.5,
+    borderRadius: 4,
+    padding: "2px 7px",
+    fontSize: 10,
     fontWeight: 600,
-    whiteSpace: "nowrap"
+    whiteSpace: "nowrap",
+    letterSpacing: .1
   }
 }, children);
 // Urgency badge. Weight and label carry the signal so it survives colour-blindness
@@ -1203,7 +1203,8 @@ const UrgChip = ({ u, small, muted }) => {
   // Solid only while the page is still live. Once accepted/done the emergency is over and
   // the chip drops to an outline, so the archive stops shouting.
   const solid = (u === "STAT" || u === "Urgent") && !muted;
-  const t = tier(u);
+  // Routine is the default case: it earns no colour, or every calm card wears one.
+  const t = u === "Routine" ? { c: T.faint, s: T.soft } : tier(u);
   return /*#__PURE__*/React.createElement("span", {
     style: {
       background: solid ? t.c : T.surface,
@@ -1256,16 +1257,17 @@ const Btn = ({
   style: {
     background: soft ? T.surface : color,
     color: soft ? color : "#fff",
-    border: `1.5px solid ${soft ? T.line : color}`,
-    borderRadius: 9,
+    border: `1px solid ${soft ? T.line : color}`,
+    borderRadius: 7,
     cursor: disabled ? "default" : "pointer",
-    padding: sm ? "5px 10px" : "9px 13px",
+    padding: sm ? "5px 10px" : "10px 13px",
     fontWeight: 600,
     fontSize: sm ? 11.5 : 13,
     fontFamily: T.sans,
+    letterSpacing: .15,
     width: full ? "100%" : undefined,
     opacity: disabled ? 0.45 : 1,
-    boxShadow: soft ? "none" : "0 1px 2px rgba(16,36,62,.15)",
+    boxShadow: "none",
     textAlign: "center",
     ...style
   }
@@ -1279,23 +1281,15 @@ const Sec = ({
     display: "flex",
     alignItems: "center",
     gap: 7,
-    margin: "16px 0 8px"
+    margin: "18px 0 7px"
   }
 }, /*#__PURE__*/React.createElement("span", {
   style: {
-    width: 4,
-    height: 15,
-    borderRadius: 99,
-    background: accent || T.blue,
-    flexShrink: 0
-  }
-}), /*#__PURE__*/React.createElement("span", {
-  style: {
-    fontFamily: T.disp,
-    fontSize: 13.5,
-    fontWeight: 800,
-    color: T.ink,
-    letterSpacing: 0.3
+    fontFamily: T.sans,
+    fontSize: 10.5,
+    fontWeight: 700,
+    color: T.faint,
+    letterSpacing: 0.7
   }
 }, children)) : /*#__PURE__*/React.createElement("div", {
   style: {
@@ -1350,21 +1344,31 @@ const StatusLine = ({
       flexWrap: "wrap",
       gap: 4
     }
-  }, steps.map(([k, l], i) => /*#__PURE__*/React.createElement(React.Fragment, {
-    key: k
-  }, i > 0 && /*#__PURE__*/React.createElement("span", {
-    style: {
-      width: 12,
-      height: 1.5,
-      background: has(k) ? T.ok : T.line
-    }
-  }), /*#__PURE__*/React.createElement("span", {
-    style: {
-      fontSize: 10.5,
-      fontWeight: 600,
-      color: has(k) ? T.ok : T.faint
-    }
-  }, has(k) ? "✓ " : "", l))), p.cancelled && /*#__PURE__*/React.createElement(Pill, {
+  }, steps.map(([k, l], i) => {
+    // the furthest step reached is the one that matters; everything behind it is history
+    const reached = has(k);
+    const next = steps[i + 1];
+    const current = reached && !(next && has(next[0]));
+    return /*#__PURE__*/React.createElement(React.Fragment, {
+      key: k
+    }, i > 0 && /*#__PURE__*/React.createElement("span", {
+      style: {
+        width: 8,
+        height: 1,
+        background: reached ? T.line : T.line,
+        opacity: reached ? 1 : .5,
+        flexShrink: 0
+      }
+    }), /*#__PURE__*/React.createElement("span", {
+      style: {
+        fontSize: 9.5,
+        fontWeight: current ? 600 : 400,
+        color: current ? (k === "ACK" ? T.ok : T.dim) : reached ? T.faint : T.faint,
+        opacity: reached ? 1 : .55,
+        whiteSpace: "nowrap"
+      }
+    }, reached ? "✓ " : "", l));
+  }), p.cancelled && /*#__PURE__*/React.createElement(Pill, {
     c: T.dim,
     bg: T.soft
   }, "Cancelled by sender"), p.declined && /*#__PURE__*/React.createElement(Pill, {
@@ -1397,7 +1401,7 @@ const Chat = ({
   return /*#__PURE__*/React.createElement("div", {
     style: {
       border: `1.5px solid ${T.blue}`,
-      borderRadius: 12,
+      borderRadius: 9,
       overflow: "hidden",
       background: T.surface,
       marginTop: 4
@@ -1414,7 +1418,7 @@ const Chat = ({
   }, /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 11,
-      fontWeight: 700,
+      fontWeight: 600,
       color: T.blue
     }
   }, "\uD83D\uDCAC Chat", withName ? ` · ${withName}` : "")), /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
@@ -1522,7 +1526,7 @@ const Phone = ({
       background: T.surface,
       border: `1px solid ${T.line}`,
       borderTop: `3px solid ${color}`,
-      borderRadius: 12,
+      borderRadius: 9,
       padding: "9px 12px",
       boxShadow: T.shadow
     }
@@ -1537,7 +1541,7 @@ const Phone = ({
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: T.disp,
-      fontWeight: 800,
+      fontWeight: 700,
       fontSize: 14,
       color: T.ink,
       whiteSpace: "nowrap"
@@ -1637,7 +1641,7 @@ const Phone = ({
 }, /*#__PURE__*/React.createElement("span", {
   style: {
     fontFamily: T.disp,
-    fontWeight: 800,
+    fontWeight: 700,
     fontSize: 14,
     color: T.ink
   }
@@ -1938,13 +1942,13 @@ const Calendar = ({
     style: {
       marginTop: 8,
       background: T.soft,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: 9
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
-      fontWeight: 700,
+      fontWeight: 600,
       color: T.ink,
       marginBottom: 5
     }
@@ -2019,7 +2023,7 @@ const Calendar = ({
   }, "‹"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: T.disp,
-      fontWeight: 700,
+      fontWeight: 600,
       fontSize: 12.5,
       color: T.ink,
       textAlign: "center"
@@ -2099,13 +2103,13 @@ const Calendar = ({
     style: {
       marginTop: 8,
       background: T.soft,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: 9
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
-      fontWeight: 700,
+      fontWeight: 600,
       color: T.ink,
       marginBottom: 5
     }
@@ -2226,14 +2230,14 @@ const DayEditor = ({
   return /*#__PURE__*/React.createElement("div", {
     style: {
       background: T.soft,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: 10,
       marginBottom: 10
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11.5,
-      fontWeight: 700,
+      fontWeight: 600,
       color: T.blue,
       marginBottom: 2
     }
@@ -2269,7 +2273,7 @@ const DayEditor = ({
   }, "‹"), /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 12,
-      fontWeight: 700,
+      fontWeight: 600,
       color: T.ink,
       fontFamily: T.disp
     }
@@ -2460,21 +2464,21 @@ const HistoryDetail = ({
     style: {
       background: T.surface,
       border: `1px solid ${T.line}`,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: "8px 10px",
       marginBottom: 8
     }
   }, sumRow("Direction", incoming ? "Incoming" : "Outgoing"), sumRow("Consult type", p.reason || "-"), sumRow("Service", p.service || "-"), sumRow(incoming ? "From" : "To", (incoming ? p.from : p.to) || (p.gapOpen ? "Locating" : "-")), sumRow("When", fmtdt(p.sentAt)), sumRow("Urgency", p.urgency || "-"), sumRow("Status", pState(p).label)), /*#__PURE__*/React.createElement("div", {
     style: {
       background: pState(p).s,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: "8px 10px",
       marginBottom: 8
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
       color: pState(p).c,
-      fontWeight: 800,
+      fontWeight: 700,
       fontSize: 11,
       letterSpacing: 1
     }
@@ -2540,13 +2544,13 @@ const HistoryDetail = ({
     style: {
       background: T.surface,
       border: `1px solid ${T.line}`,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: 10
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 13,
-      fontWeight: 600,
+      fontWeight: 450,
       color: T.ink,
       marginBottom: 4
     }
@@ -2636,7 +2640,7 @@ const HistoryDetail = ({
     style: {
       background: T.surface,
       border: `1px solid ${T.line}`,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: 10
     }
   }, [["Patient", p.billing.fullName], ["MRN", (p.billing.mrn ?? (p.idType === "PHN" ? "" : p.mrn)) || "-"], ["Date of birth", p.billing.dob || "-"], ["Visit", p.billing.visit ? p.billing.visit.replace("T", " ") : "-"], ["Health card", p.billing.hcn || "-"], ["Referred from", p.billing.referredFrom || p.from], ["Referring service", p.billing.refService || svcOfName(p.from) || "-"], ["Billing number", p.billing.billNumber || "-"], ["Encounter", p.billing.encounter || p.reason || "-"], ["Diagnosis", p.billing.diagnosis], ["Billing code", p.billing.billCode], ["Diagnostic code", p.billing.dxCode || "-"], ["Comment", p.comment || p.billing.comment || "-"], ["Exported", p.billing.exportedAt ? "✓ " + fmtdt(p.billing.exportedAt) : "not yet"]].map(([k, v]) => /*#__PURE__*/React.createElement("div", {
@@ -2755,7 +2759,7 @@ const Dashboard = ({
     style: {
       background: T.blueSoft,
       border: `1px solid ${T.blue}33`,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: 10,
       marginTop: 6,
       fontSize: 11.5,
@@ -2783,13 +2787,13 @@ const Dashboard = ({
   }, "Request to change my schedule") : /*#__PURE__*/React.createElement("div", {
     style: {
       background: T.soft,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: 10
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11.5,
-      fontWeight: 700,
+      fontWeight: 600,
       color: T.blue,
       marginBottom: 4
     }
@@ -3081,7 +3085,7 @@ const Dashboard = ({
       background: T.surface,
       border: `1px solid ${T.line}`,
       borderLeft: `3px solid ${tier(p.urgency).c}`,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: 9,
       marginBottom: 6,
       cursor: "pointer"
@@ -3094,7 +3098,7 @@ const Dashboard = ({
   }, /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 12,
-      fontWeight: 700,
+      fontWeight: 600,
       color: T.ink
     }
   }, p.service ? `${p.service} \u00b7 ${p.from}` : p.from), /*#__PURE__*/React.createElement("span", {
@@ -3130,7 +3134,7 @@ const Dashboard = ({
       background: T.surface,
       border: `1px solid ${T.line}`,
       borderLeft: `3px solid ${T.ok}`,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: 9,
       marginBottom: 6,
       cursor: "pointer"
@@ -3144,7 +3148,7 @@ const Dashboard = ({
   }, /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 11.5,
-      fontWeight: 600,
+      fontWeight: 450,
       color: T.ink
     }
   }, p.billing.fullName || "Unnamed patient"), /*#__PURE__*/React.createElement("div", {
@@ -3206,7 +3210,7 @@ const Profile = ({
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: T.disp,
-      fontWeight: 800,
+      fontWeight: 700,
       fontSize: 16,
       color: T.ink
     }
@@ -3280,13 +3284,13 @@ const Profile = ({
   }, "Request a profile change") : /*#__PURE__*/React.createElement("div", {
     style: {
       background: T.soft,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: 10
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11.5,
-      fontWeight: 700,
+      fontWeight: 600,
       color: T.blue,
       marginBottom: 4
     }
@@ -3399,7 +3403,7 @@ const Combo = ({
       marginTop: 3,
       background: T.surface,
       border: `1px solid ${T.line}`,
-      borderRadius: 10,
+      borderRadius: 8,
       boxShadow: T.shadow,
       maxHeight: 196,
       overflowY: "auto"
@@ -3546,7 +3550,7 @@ const AdvSearch = ({
       padding: 0,
       cursor: "pointer",
       fontSize: 11,
-      fontWeight: 600,
+      fontWeight: 450,
       color: T.blue,
       fontFamily: T.sans,
       display: "inline-flex",
@@ -3577,7 +3581,7 @@ const AdvSearch = ({
   }, "Clear filters")), open && /*#__PURE__*/React.createElement("div", {
     style: {
       border: `1px solid ${T.line}`,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: 10,
       marginTop: 6,
       background: T.soft
@@ -3718,14 +3722,14 @@ const ComposerUI = ({
         cursor: "pointer",
         background: sel ? T.blueSoft : T.surface,
         border: `1.5px solid ${sel ? T.blue : T.line}`,
-        borderRadius: 10,
+        borderRadius: 8,
         padding: "8px 10px",
         marginBottom: 5
       }
     }, /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 12.5,
-        fontWeight: 700,
+        fontWeight: 600,
         color: T.ink,
         display: "flex",
         alignItems: "center",
@@ -3903,14 +3907,14 @@ const SenderDetail = ({
 }, "\u2190 Pages"), /*#__PURE__*/React.createElement("div", {
   style: {
     background: pState(p).s,
-    borderRadius: 10,
+    borderRadius: 8,
     padding: "8px 10px",
     marginBottom: 8
   }
 }, /*#__PURE__*/React.createElement("span", {
   style: {
     color: pState(p).c,
-    fontWeight: 800,
+    fontWeight: 700,
     fontSize: 11,
     letterSpacing: 1
   }
@@ -3922,7 +3926,7 @@ const SenderDetail = ({
 }, " \xB7 ", p.reason, " \xB7 to ", p.gapOpen ? `${p.service} (Locating)` : p.to, " \xB7 ", fmt(p.sentAt))), /*#__PURE__*/React.createElement("div", {
   style: {
     fontSize: 13,
-    fontWeight: 600,
+    fontWeight: 450,
     color: T.ink,
     marginBottom: 4
   }
@@ -4002,14 +4006,14 @@ const SenderDetail = ({
       cursor: "pointer",
       background: T.surface,
       border: `1.5px solid ${T.line}`,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: "8px 10px",
       marginBottom: 5
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 12.5,
-      fontWeight: 700,
+      fontWeight: 600,
       color: T.ink,
       display: "flex",
       alignItems: "center",
@@ -4105,7 +4109,7 @@ const CallScreen = ({
   }, "PAGELINK REMINDER CALL"), /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: T.disp,
-      fontWeight: 800,
+      fontWeight: 700,
       fontSize: 16,
       color: T.ink,
       margin: "8px 0 2px"
@@ -4181,7 +4185,7 @@ const InAppCall = ({
 }, "\uD83D\uDCDE"), /*#__PURE__*/React.createElement("div", {
   style: {
     fontFamily: T.disp,
-    fontWeight: 800,
+    fontWeight: 700,
     fontSize: 16,
     color: T.ink
   }
@@ -4428,14 +4432,14 @@ const DetailUI = ({
   }, "\u2190 Inbox"), /*#__PURE__*/React.createElement("div", {
     style: {
       background: pState(p, RECEIVER).s,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: "8px 10px",
       marginBottom: 8
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
       color: pState(p, RECEIVER).c,
-      fontWeight: 800,
+      fontWeight: 700,
       fontSize: 11,
       letterSpacing: 1
     }
@@ -4447,7 +4451,7 @@ const DetailUI = ({
   }, " \xB7 ", p.reason || "Team", " \xB7 ", svcOfName(p.from) ? `${svcOfName(p.from)} · ` : "", p.from, " \xB7 ", fmt(p.sentAt))), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 14,
-      fontWeight: 700,
+      fontWeight: 600,
       color: T.ink,
       marginBottom: 4
     }
@@ -4773,7 +4777,7 @@ const UserAdmin = ({
   return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: T.disp,
-      fontWeight: 800,
+      fontWeight: 700,
       fontSize: 14,
       color: T.ink,
       marginBottom: 2
@@ -4790,14 +4794,14 @@ const UserAdmin = ({
   }, "+ Add user") : /*#__PURE__*/React.createElement("div", {
     style: {
       background: T.blueSoft,
-      borderRadius: 12,
+      borderRadius: 9,
       padding: 12,
       marginBottom: 8
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11.5,
-      fontWeight: 700,
+      fontWeight: 600,
       color: T.blue
     }
   }, editing === "new" ? "Add user" : "Edit user"), lbl("Full name"), /*#__PURE__*/React.createElement("input", {
@@ -4923,7 +4927,7 @@ const UserAdmin = ({
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 12.5,
-      fontWeight: 700,
+      fontWeight: 600,
       color: T.ink,
       display: "flex",
       alignItems: "center",
@@ -5036,7 +5040,7 @@ const AdminPageHistory = ({
       background: T.surface,
       border: `1px solid ${T.line}`,
       borderLeft: `3px solid ${pageStatusColor(pageStatus(p))}`,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: 9,
       marginBottom: 6,
       cursor: "pointer"
@@ -5051,7 +5055,7 @@ const AdminPageHistory = ({
   }, /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 11.5,
-      fontWeight: 600,
+      fontWeight: 450,
       color: T.ink,
       minWidth: 0,
       overflow: "hidden",
@@ -5222,13 +5226,13 @@ const AnalyticsPanel = ({
     key: k,
     style: {
       background: T.soft,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: 10
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: T.disp,
-      fontWeight: 800,
+      fontWeight: 700,
       fontSize: 20,
       color: T.blue
     }
@@ -5355,7 +5359,7 @@ const CompareView = ({
       alignItems: "center",
       gap: 5,
       fontSize: 11.5,
-      fontWeight: 700,
+      fontWeight: 600,
       color: T.ink
     }
   }, /*#__PURE__*/React.createElement("span", {
@@ -6022,12 +6026,12 @@ function PageLinkDemo() {
     key: p.id,
     onClick: onOpen,
     style: {
-      background: unread > 0 ? T.blueSoft : T.surface,
+      background: T.surface,
       border: `1px solid ${unread > 0 ? T.blue : T.line}`,
       borderLeft: `3px solid ${pState(p).rank < 3 && p.urgency ? tier(p.urgency).c : pState(p).c}`,
-      borderRadius: 10,
-      padding: 10,
-      marginBottom: 8,
+      borderRadius: 7,
+      padding: "9px 10px",
+      marginBottom: 6,
       cursor: "pointer"
     }
   }, /*#__PURE__*/React.createElement("div", {
@@ -6039,11 +6043,12 @@ function PageLinkDemo() {
   }, /*#__PURE__*/React.createElement("span", {
     style: {
       fontSize: 12,
-      fontWeight: 700,
+      fontWeight: 400,
       color: T.ink,
       display: "flex",
       alignItems: "center",
-      gap: 5
+      gap: 5,
+      minWidth: 0
     }
   }, /*#__PURE__*/React.createElement("span", {
     title: "Outgoing page",
@@ -6059,7 +6064,9 @@ function PageLinkDemo() {
       fontSize: 11,
       flexShrink: 0
     }
-  }, "↗"), p.gapOpen ? p.service : p.to, /*#__PURE__*/React.createElement(UrgChip, {
+  }, "↗"), /*#__PURE__*/React.createElement("span", {
+    style: { fontWeight: 600 }
+  }, p.gapOpen ? p.service : p.to), /*#__PURE__*/React.createElement(UrgChip, {
     u: p.urgency,
     small: true,
     muted: pState(p).rank >= 3
@@ -6083,13 +6090,13 @@ function PageLinkDemo() {
     }
   }, p.question.slice(0, 56), "…"), unread > 0 && reply && /*#__PURE__*/React.createElement("div", {
     style: {
-      background: T.blue,
-      color: "#fff",
-      borderRadius: 8,
-      padding: "5px 8px",
-      fontSize: 11,
-      fontWeight: 600,
-      marginBottom: 6,
+      background: "transparent",
+      color: T.blue,
+      borderRadius: 0,
+      padding: "1px 0 3px",
+      fontSize: 10.5,
+      fontWeight: 500,
+      marginBottom: 4,
       whiteSpace: "nowrap",
       overflow: "hidden",
       textOverflow: "ellipsis"
@@ -6114,7 +6121,7 @@ function PageLinkDemo() {
         background: live ? ut.s : T.surface,
         border: `1px solid ${live ? ut.c : T.line}`,
         borderLeft: `${live ? 4 : 3}px solid ${rail}`,
-        borderRadius: 10,
+        borderRadius: 8,
         padding: 10,
         marginBottom: 8,
         cursor: "pointer"
@@ -6156,10 +6163,11 @@ function PageLinkDemo() {
       }
     }, fmt(p.sentAt)))), /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 12.5,
-        fontWeight: 600,
+        fontSize: 13,
+        fontWeight: 500,
         color: T.ink,
-        margin: "5px 0 3px"
+        margin: "6px 0 4px",
+        lineHeight: 1.35
       }
     }, p.question.slice(0, 64), "…"), lm && /*#__PURE__*/React.createElement("div", {
       style: {
@@ -6174,7 +6182,9 @@ function PageLinkDemo() {
     }, lm.who.split(" ")[1], ": ", lm.text), /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 10.5,
-        color: T.dim
+        fontWeight: 400,
+        color: T.faint,
+        lineHeight: 1.4
       }
     }, svcOfName(p.from) ? `${svcOfName(p.from)} · ${p.from}` : p.from, p.mrn ? ` \xB7 ${p.idType === "PHN" ? "PHN" : "MRN"} ${p.mrn} \xB7 ${p.second}` : " \xB7 general inquiry", " \xB7 ", p.billing || p.completedAt ? "✓ done" : acked ? "✓ accepted" : "tap to triage"));
   };
@@ -6218,7 +6228,7 @@ function PageLinkDemo() {
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: T.disp,
-      fontWeight: 800,
+      fontWeight: 700,
       fontSize: 30,
       letterSpacing: -0.5
     }
@@ -6269,7 +6279,7 @@ function PageLinkDemo() {
       borderRadius: 8,
       padding: "6px 11px",
       fontSize: 11.5,
-      fontWeight: 700,
+      fontWeight: 600,
       fontFamily: T.sans,
       cursor: "pointer",
       display: "inline-flex",
@@ -6296,7 +6306,7 @@ function PageLinkDemo() {
       borderRadius: 999,
       padding: "7px 18px",
       fontSize: 13,
-      fontWeight: 700,
+      fontWeight: 600,
       cursor: "pointer",
       fontFamily: T.disp
     }
@@ -6381,15 +6391,15 @@ function PageLinkDemo() {
     style: {
       background: T.statSoft,
       border: `1px solid ${T.stat}55`,
-      borderRadius: 10,
-      padding: 10,
-      marginBottom: 8,
+      borderRadius: 7,
+      padding: "9px 10px",
+      marginBottom: 6,
       cursor: "pointer"
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11.5,
-      fontWeight: 700,
+      fontWeight: 600,
       color: T.stat
     }
   }, "Duplicate STAT blocked"), /*#__PURE__*/React.createElement("div", {
@@ -6406,7 +6416,7 @@ function PageLinkDemo() {
   }, "+ Page Someone"), /*#__PURE__*/React.createElement(Sec, { big: true, accent: T.blue }, "OUTGOING PAGES \u00b7 tap for chat & status"), mine.length === 0 && /*#__PURE__*/React.createElement(Note, null, "Tap New page to page someone."), mine.slice().sort(byState()).map(p => outCard(p, () => {
     setOpenSenderId(p.id);
     markRead(p.id, SENDER);
-  })), /*#__PURE__*/React.createElement(Sec, { big: true, accent: T.ok }, "INCOMING PAGES · pages you received"), senderIncoming.length === 0 && /*#__PURE__*/React.createElement(Note, null, "No incoming pages right now \u00b7 pages addressed to you appear here."), senderIncoming.slice().sort(byState()).map(p => inCard(p, () => setOpenInS(p.id))))), view === "user" && /*#__PURE__*/React.createElement("div", {
+  })), /*#__PURE__*/React.createElement(Sec, { big: true, accent: T.ok }, "INCOMING PAGES \u00b7 pages you received"), senderIncoming.length === 0 && /*#__PURE__*/React.createElement(Note, null, "No incoming pages right now \u00b7 pages addressed to you appear here."), senderIncoming.slice().sort(byState()).map(p => inCard(p, () => setOpenInS(p.id))))), view === "user" && /*#__PURE__*/React.createElement("div", {
     style: {
       alignSelf: "center",
       flex: 1,
@@ -6425,7 +6435,7 @@ function PageLinkDemo() {
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 15,
-      fontWeight: 800,
+      fontWeight: 700,
       color: T.blue,
       letterSpacing: 1.5,
       marginBottom: 9,
@@ -6477,7 +6487,7 @@ function PageLinkDemo() {
   })), /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 15,
-      fontWeight: 800,
+      fontWeight: 700,
       color: T.ok,
       letterSpacing: 1.5,
       marginTop: 9,
@@ -6589,14 +6599,14 @@ function PageLinkDemo() {
     style: {
       background: T.blueSoft,
       border: `1px solid ${T.blue}44`,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: 10,
       marginBottom: 8
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11.5,
-      fontWeight: 700,
+      fontWeight: 600,
       color: T.blue
     }
   }, "Shift ended · handoff"), /*#__PURE__*/React.createElement("div", {
@@ -6623,10 +6633,10 @@ function PageLinkDemo() {
       setComposingR(true);
       setDraftR(newDraft());
     }
-  }, "+ Page Someone"), /*#__PURE__*/React.createElement(Sec, { big: true, accent: T.blue }, "OUTGOING PAGES \xB7 pages you've sent"), receiverOutgoing.length === 0 && /*#__PURE__*/React.createElement(Note, null, "Pages you send appear here with live status."), receiverOutgoing.slice().sort(byState()).map(p => outCard(p, () => {
+  }, "+ Page Someone"), /*#__PURE__*/React.createElement(Sec, { big: true, accent: T.blue }, "OUTGOING PAGES \u00b7 pages you've sent"), receiverOutgoing.length === 0 && /*#__PURE__*/React.createElement(Note, null, "Pages you send appear here with live status."), receiverOutgoing.slice().sort(byState()).map(p => outCard(p, () => {
     setOpenOutR(p.id);
     markRead(p.id, RECEIVER);
-  })), /*#__PURE__*/React.createElement(Sec, { big: true, accent: T.ok }, "INCOMING PAGES · pages you received"), inbox.length === 0 && /*#__PURE__*/React.createElement(Note, null, "Nothing yet. Pages arrive with full context: who, why, how urgent."), inbox.map(p => {
+  })), /*#__PURE__*/React.createElement(Sec, { big: true, accent: T.ok }, "INCOMING PAGES \u00b7 pages you received"), inbox.length === 0 && /*#__PURE__*/React.createElement(Note, null, "Nothing yet. Pages arrive with full context: who, why, how urgent."), inbox.map(p => {
     const acked = p.kind === "broadcast" ? !!p.members.find(m => m.name === RECEIVER)?.ack : p.events.some(e => e.type === "ACK");
     const lm = (p.thread || []).slice().reverse().find(m => m.who !== RECEIVER);
     const isNew = !acked && !p.declined && !p.completedAt && !p.billing;
@@ -6644,7 +6654,7 @@ function PageLinkDemo() {
         background: live ? ut.s : T.surface,
         border: `1px solid ${live ? ut.c : T.line}`,
         borderLeft: `${live ? 4 : 3}px solid ${rail}`,
-        borderRadius: 10,
+        borderRadius: 8,
         padding: 10,
         marginBottom: 8,
         cursor: "pointer"
@@ -6686,10 +6696,11 @@ function PageLinkDemo() {
       }
     }, fmt(p.sentAt)))), /*#__PURE__*/React.createElement("div", {
       style: {
-        fontSize: 12.5,
-        fontWeight: 600,
+        fontSize: 13,
+        fontWeight: 500,
         color: T.ink,
-        margin: "5px 0 3px"
+        margin: "6px 0 4px",
+        lineHeight: 1.35
       }
     }, p.question.slice(0, 64), "\u2026"), lm && /*#__PURE__*/React.createElement("div", {
       style: {
@@ -6704,7 +6715,9 @@ function PageLinkDemo() {
     }, lm.who.split(" ")[1], ": ", lm.text), /*#__PURE__*/React.createElement("div", {
       style: {
         fontSize: 10.5,
-        color: T.dim
+        fontWeight: 400,
+        color: T.faint,
+        lineHeight: 1.4
       }
     }, svcOfName(p.from) ? `${svcOfName(p.from)} · ${p.from}` : p.from, p.mrn ? ` \xB7 ${p.idType === "PHN" ? "PHN" : "MRN"} ${p.mrn} \xB7 ${p.second}` : " \xB7 general inquiry", " \xB7 ", p.declined ? `✕ rejected${p.declineDest ? ` → ${p.declineDest}` : ""}` : p.billing ? "✓ done" : p.completedAt ? "✓ done" : acked ? "✓ accepted" : "tap to triage"));
   }))), view === "admin" && /*#__PURE__*/React.createElement("div", {
@@ -6725,7 +6738,7 @@ function PageLinkDemo() {
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       background: T.bg,
-      borderRadius: 10,
+      borderRadius: 8,
       overflow: "hidden",
       display: "flex",
       flexDirection: "column",
@@ -6745,7 +6758,7 @@ function PageLinkDemo() {
   }, /*#__PURE__*/React.createElement("span", {
     style: {
       fontFamily: T.disp,
-      fontWeight: 800,
+      fontWeight: 700,
       fontSize: 17,
       color: T.ink,
       padding: "13px 0",
@@ -6774,7 +6787,7 @@ function PageLinkDemo() {
       border: "none",
       cursor: "pointer",
       fontFamily: T.disp,
-      fontWeight: 800,
+      fontWeight: 700,
       fontSize: 14,
       color: panel === k ? T.blue : T.faint,
       padding: "15px 2px 12px",
@@ -6798,7 +6811,7 @@ function PageLinkDemo() {
   }, panel === "locating" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: T.disp,
-      fontWeight: 800,
+      fontWeight: 700,
       fontSize: 14,
       color: T.ink,
       marginBottom: 2
@@ -6826,7 +6839,7 @@ function PageLinkDemo() {
       cursor: "pointer",
       padding: "0 0 8px",
       fontFamily: T.disp,
-      fontWeight: 800,
+      fontWeight: 700,
       fontSize: 13,
       color: locTab === k ? T.blue : T.faint,
       borderBottom: `2px solid ${locTab === k ? T.blue : "transparent"}`,
@@ -6840,14 +6853,14 @@ function PageLinkDemo() {
     style: {
       background: T.statSoft,
       border: `1px solid ${T.stat}44`,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: 10,
       marginBottom: 8
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
-      fontWeight: 800,
+      fontWeight: 700,
       color: T.stat
     }
   }, "HEARTBEAT LOST \xB7 Dr. Chen"), /*#__PURE__*/React.createElement("div", {
@@ -6869,14 +6882,14 @@ function PageLinkDemo() {
     style: {
       background: T.urgentSoft,
       border: `1px solid ${T.urgent}33`,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: 10,
       marginBottom: 8
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11,
-      fontWeight: 800,
+      fontWeight: 700,
       color: T.urgent
     }
   }, "COVERAGE GAP \xB7 ", p.service), /*#__PURE__*/React.createElement("div", {
@@ -7039,7 +7052,7 @@ function PageLinkDemo() {
       cursor: "pointer",
       padding: "0 0 8px",
       fontFamily: T.disp,
-      fontWeight: 800,
+      fontWeight: 700,
       fontSize: 14,
       color: adminTab === k ? T.blue : T.faint,
       borderBottom: `2px solid ${adminTab === k ? T.blue : "transparent"}`,
@@ -7084,14 +7097,14 @@ function PageLinkDemo() {
   }), d))), /*#__PURE__*/React.createElement("div", {
     style: {
       background: T.blueSoft,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: 10,
       marginBottom: 10
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 11.5,
-      fontWeight: 700,
+      fontWeight: 600,
       color: T.blue,
       marginBottom: 6
     }
@@ -7243,7 +7256,7 @@ function PageLinkDemo() {
   })), adminTab === "requests" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: T.disp,
-      fontWeight: 800,
+      fontWeight: 700,
       fontSize: 14,
       color: T.ink,
       marginBottom: 2
@@ -7315,7 +7328,7 @@ function PageLinkDemo() {
   }, "Mark handled"))))), panel === "insights" && /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: T.disp,
-      fontWeight: 800,
+      fontWeight: 700,
       fontSize: 14,
       color: T.ink,
       marginBottom: 2
@@ -7337,13 +7350,13 @@ function PageLinkDemo() {
     key: k,
     style: {
       background: T.soft,
-      borderRadius: 10,
+      borderRadius: 8,
       padding: 10
     }
   }, /*#__PURE__*/React.createElement("div", {
     style: {
       fontFamily: T.disp,
-      fontWeight: 800,
+      fontWeight: 700,
       fontSize: 20,
       color: T.blue
     }
