@@ -313,7 +313,8 @@ try {
 const {
   useState,
   useEffect,
-  useMemo
+  useMemo,
+  useId
 } = React;
 
 // ---------- design tokens ----------
@@ -3901,7 +3902,7 @@ const PageSummary = ({ service, to, urgency, gap }) => {
 };
 
 // --- ServiceCombobox -------------------------------------------------------
-const ServiceCombobox = ({ value, services, onPick, onClear }) => {
+const ServiceCombobox = ({ value, services, onPick, onClear, id }) => {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -3929,8 +3930,8 @@ const ServiceCombobox = ({ value, services, onPick, onClear }) => {
       style: { position: "absolute", left: 10, top: 13, color: T.faint, pointerEvents: "none" }
     }, h(Icon, { name: "search", size: 16 })),
     h("input", {
-      id: "svc-input", type: "text", role: "combobox",
-      "aria-expanded": open ? "true" : "false", "aria-controls": "svc-listbox",
+      id: id, type: "text", role: "combobox",
+      "aria-expanded": open ? "true" : "false", "aria-controls": `${id}-listbox`,
       "aria-autocomplete": "list", autoComplete: "off",
       value: value || q,
       placeholder: "Search services",
@@ -3949,7 +3950,7 @@ const ServiceCombobox = ({ value, services, onPick, onClear }) => {
       }
     }, h(Icon, { name: "x", size: 15, sw: 2 })),
     open && !value && h("ul", {
-      id: "svc-listbox", role: "listbox",
+      id: `${id}-listbox`, role: "listbox",
       style: {
         position: "absolute", left: 0, right: 0, top: 48, zIndex: 20, margin: 0,
         padding: 4, listStyle: "none", background: T.surface, border: `1px solid ${T.line}`,
@@ -4086,9 +4087,9 @@ const UrgencySelector = ({ value, onChange }) => {
 };
 
 // --- ClinicalQuestionField -------------------------------------------------
-const ClinicalQuestionField = ({ value, onChange, isInquiry }) =>
+const ClinicalQuestionField = ({ value, onChange, isInquiry, id }) =>
   h("textarea", {
-    id: "clinical-question", rows: 4, value: value,
+    id: id, rows: 4, value: value,
     onChange: e => onChange(e.target.value),
     placeholder: isInquiry
       ? "What do you need to ask the on-call physician?"
@@ -4101,7 +4102,7 @@ const ClinicalQuestionField = ({ value, onChange, isInquiry }) =>
   });
 
 // --- StickySubmitBar -------------------------------------------------------
-const StickySubmitBar = ({ ready, missing, urgency, to, gap, sending, onSend }) => {
+const StickySubmitBar = ({ ready, missing, urgency, to, gap, sending, onSend, id }) => {
   // STAT is an acronym, not a word: never lowercase it
   const uWord = urgency === "STAT" ? "STAT" : String(urgency || "").toLowerCase();
   const label = sending ? "Sending page…"
@@ -4116,13 +4117,13 @@ const StickySubmitBar = ({ ready, missing, urgency, to, gap, sending, onSend }) 
     }
   },
     !ready && missing.length > 0 && h("div", {
-      id: "send-missing",
+      id: `${id}-missing`,
       style: { display: "flex", alignItems: "center", gap: 6, marginBottom: 8, fontSize: 12.5, color: T.dim }
     }, h(Icon, { name: "info", size: 13, sw: 2, style: { flexShrink: 0 } }),
        h("span", null, "Still needed: ", missing.join(", "))),
     h("button", {
       onClick: onSend, disabled: !ready || sending,
-      "aria-describedby": !ready ? "send-missing" : undefined,
+      "aria-describedby": !ready ? `${id}-missing` : undefined,
       style: {
         width: "100%", minHeight: 48, borderRadius: RAD.btn, cursor: ready && !sending ? "pointer" : "not-allowed",
         fontFamily: T.sans, fontSize: 15, fontWeight: 600, letterSpacing: .1,
@@ -4138,6 +4139,9 @@ const StickySubmitBar = ({ ready, missing, urgency, to, gap, sending, onSend }) 
 
 // --- ComposerUI: logic lives here, parts above are presentation -------------
 const ComposerUI = ({ draft, setDraft, roster, directory, services, deviceDark, onSend, onCancel }) => {
+  // instance-scoped ids: the sender and receiver phones can both host a composer
+  const uid = useId();
+  const ids = { svc: `${uid}-svc`, recip: `${uid}-recip`, q: `${uid}-q`, bar: `${uid}-bar` };
   const [sending, setSending] = useState(false);
   const [attempted, setAttempted] = useState(false);
   const [rq, setRq] = useState("");
@@ -4199,20 +4203,20 @@ const ComposerUI = ({ draft, setDraft, roster, directory, services, deviceDark, 
     h(PageSummary, { service: draft.service, to: draft.to, urgency: draft.urgency, gap: gap }),
     h("div", { style: { maxWidth: 560, margin: "0 auto", padding: `${S.md}px 0 0` } },
 
-      h(FormSection, { label: "Service", helper: "Optional when paging a specific person", htmlFor: "svc-input" },
+      h(FormSection, { label: "Service", helper: "Optional when paging a specific person", htmlFor: ids.svc },
         h(ServiceCombobox, {
-          value: draft.service, services: services,
+          id: ids.svc, value: draft.service, services: services,
           onPick: pickService, onClear: () => set({ service: "" })
         })),
 
-      h(FormSection, { label: "Recipient", htmlFor: "recip-input" },
+      h(FormSection, { label: "Recipient", htmlFor: ids.recip },
         h("div", { style: { position: "relative", marginBottom: S.md } },
           h("span", {
             "aria-hidden": "true",
             style: { position: "absolute", left: 10, top: 13, color: T.faint, pointerEvents: "none" }
           }, h(Icon, { name: "search", size: 16 })),
           h("input", {
-            id: "recip-input", type: "text", autoComplete: "off",
+            id: ids.recip, type: "text", autoComplete: "off",
             value: rq, onChange: e => setRq(e.target.value),
             placeholder: "Search by name, role or service",
             style: {
@@ -4247,10 +4251,10 @@ const ComposerUI = ({ draft, setDraft, roster, directory, services, deviceDark, 
         h(UrgencySelector, { value: draft.urgency, onChange: v => set({ urgency: v }) })),
 
       h(FormSection, {
-        label: "Clinical question", htmlFor: "clinical-question",
+        label: "Clinical question", htmlFor: ids.q,
         error: attempted && !draft.question ? "A clinical question is required." : null
       }, h(ClinicalQuestionField, {
-        value: draft.question, onChange: v => set({ question: v }), isInquiry: isInquiry
+        id: ids.q, value: draft.question, onChange: v => set({ question: v }), isInquiry: isInquiry
       })),
 
       !isInquiry && h(FormSection, {
@@ -4307,7 +4311,7 @@ const ComposerUI = ({ draft, setDraft, roster, directory, services, deviceDark, 
            selectedPos ? ` · ${selectedPos}` : "")),
 
       h(StickySubmitBar, {
-        ready: ready, missing: missing, urgency: draft.urgency,
+        id: ids.bar, ready: ready, missing: missing, urgency: draft.urgency,
         to: draft.to, gap: gap, sending: sending, onSend: submit
       })));
 };
