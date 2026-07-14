@@ -990,7 +990,7 @@ const genDemoPages = () => {
   const mkPage = (from, to, kind, opts = {}) => {
     const service = svcOf(to);
     const sentAt = stamp();
-    const urgency = pick(["STAT", "Urgent", "Urgent", "Routine", "Routine"]);
+    const urgency = opts.urgency || pick(["STAT", "Urgent", "Urgent", "Routine", "Routine"]);
     const patient = pick(DEMO_PATIENTS);
     const idType = Math.random() < 0.25 ? "PHN" : "MRN";
     const base = {
@@ -1116,32 +1116,25 @@ const genDemoPages = () => {
     return out;
   };
   const pages = [];
-  // 3 outgoing from Dr. Yazdani
-  pages.push(mkPage(SENDER, pick(others).name, "billed", {
-    chat: true,
-    unreadFor: SENDER
-  }));
-  pages.push(mkPage(SENDER, pick(others).name, "done"));
-  pages.push(mkPage(SENDER, pick(others).name, "declined"));
-  // 3 incoming for Dr. Yazdani
-  pages.push(mkPage(pick(others).name, SENDER, "billed"));
-  pages.push(mkPage(pick(others).name, SENDER, "done", {
-    chat: true
-  }));
-  pages.push(mkPage(pick(others).name, SENDER, "accepted"));
-  // 1 outgoing from Dr. Chen
-  pages.push(mkPage(RECEIVER, pick(others).name, "billed"));
-  // 5 incoming for Dr. Chen
-  pages.push(mkPage(pick(others).name, RECEIVER, "billed", {
-    chat: true,
-    unreadFor: RECEIVER
-  }));
-  pages.push(mkPage(pick(others).name, RECEIVER, "billed"));
-  pages.push(mkPage(pick(others).name, RECEIVER, "done", {
-    chat: true
-  }));
-  pages.push(mkPage(pick(others).name, RECEIVER, "accepted"));
-  pages.push(mkPage(pick(others).name, RECEIVER, "declined"));
+  // Deterministic coverage: every History/Billing filter has records for both demo
+  // physicians, in both directions, across every urgency. Volume comes after.
+  const KINDS = ["billed", "done", "accepted", "declined", "cancelled"];
+  const URGS = ["STAT", "Urgent", "Routine"];
+  [SENDER, RECEIVER].forEach((me, mi) => {
+    KINDS.forEach((kind, ki) => {
+      // outgoing from this physician
+      pages.push(mkPage(me, pick(others).name, kind, {
+        urgency: URGS[(ki + mi) % 3],
+        chat: ki === 0,
+        unreadFor: ki === 0 ? me : null
+      }));
+      // incoming to this physician
+      pages.push(mkPage(pick(others).name, me, kind, {
+        urgency: URGS[(ki + mi + 1) % 3],
+        chat: ki === 1
+      }));
+    });
+  });
   // 38 more between other physicians across all divisions
   const kindPool = [];
   [["billed", 23], ["done", 7], ["accepted", 4], ["declined", 2], ["cancelled", 2]].forEach(([k, n]) => {
@@ -3985,7 +3978,7 @@ const PhysicianOption = ({ name, title, position, until, selected, onSelect, ind
       border: `${selected ? 1.5 : 1}px solid ${selected ? T.blue : T.line}`
     }
   },
-    h(Avatar, { name: name, size: 34, bg: selected ? T.blue : T.soft, fg: selected ? "#fff" : T.dim, fontSize: 13 }),
+    h(Avatar, { name: name, size: 34, bg: selected ? T.blue : undefined, fg: "#fff", fontSize: 14 }),
     h("div", { style: { flex: 1, minWidth: 0 } },
       h("div", { style: { fontSize: 15, fontWeight: 600, color: T.ink, lineHeight: "18px" } }, name),
       h("div", { style: { fontSize: 12.5, color: T.dim, lineHeight: "16px", marginTop: 1 } },
@@ -6810,7 +6803,7 @@ function PageLinkDemo() {
     color: demoSeeded ? T.ok : T.blue,
     disabled: demoSeeded,
     onClick: seedDemo
-  }, demoSeeded ? "✓ Demo data loaded · 50 pages" : "▶ Simulate live data · 50 pages"), /*#__PURE__*/React.createElement(Btn, {
+  }, demoSeeded ? "✓ Demo data loaded · every state" : "Load demo data · every state"), /*#__PURE__*/React.createElement(Btn, {
     sm: true,
     soft: true,
     color: T.dim,
