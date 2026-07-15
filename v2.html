@@ -1223,21 +1223,34 @@ const genDemoPages = () => {
   // Deterministic coverage: every History/Billing filter has records for both demo
   // physicians, in both directions, across every urgency. Volume comes after.
   const KINDS = ["billed", "done", "accepted", "declined", "cancelled"];
-  const URGS = ["STAT", "Urgent", "Routine"];
+  // A real shift is mostly routine. Weighted so the lists look believable, while
+  // STAT and Urgent still appear often enough to demonstrate. 25 per direction.
+  const URG_MIX = ["Routine", "Routine", "Routine", "Routine", "Routine",
+                   "Routine", "Routine", "Routine", "Routine", "Routine",
+                   "Routine", "Routine", "Routine", "Routine", "Routine",
+                   "Urgent", "Urgent", "Urgent", "Urgent", "Urgent", "Urgent",
+                   "STAT", "STAT", "STAT", "STAT"];
+  const PER_DIR = 25;
   [SENDER, RECEIVER].forEach((me, mi) => {
-    KINDS.forEach((kind, ki) => {
-      // outgoing from this physician
-      pages.push(mkPage(me, pick(others).name, kind, {
-        urgency: URGS[(ki + mi) % 3],
-        chat: ki === 0,
-        unreadFor: ki === 0 ? me : null
+    for (let i = 0; i < PER_DIR; i++) {
+      // first five of each direction pin one of every status; the rest keep the
+      // same realistic mix so no filter can ever come up empty
+      // outgoing: a sender can cancel their own page, so the full set applies
+      const outKind = i < KINDS.length ? KINDS[i] : KINDS[(i * 3 + mi) % KINDS.length];
+      pages.push(mkPage(me, pick(others).name, outKind, {
+        urgency: URG_MIX[(i * 7 + mi * 3) % URG_MIX.length],
+        chat: i % 6 === 0,
+        unreadFor: i % 6 === 0 ? me : null
       }));
-      // incoming to this physician
-      pages.push(mkPage(pick(others).name, me, kind, {
-        urgency: URGS[(ki + mi + 1) % 3],
-        chat: ki === 1
+      // incoming: you cannot cancel a page you RECEIVED — the sender does that.
+      // Cancelled ones would also drop out of the inbox and undercount the list.
+      const IN_KINDS = KINDS.filter(k => k !== "cancelled");
+      const inKind = i < IN_KINDS.length ? IN_KINDS[i] : IN_KINDS[(i * 3 + mi) % IN_KINDS.length];
+      pages.push(mkPage(pick(others).name, me, inKind, {
+        urgency: URG_MIX[(i * 5 + mi * 2 + 1) % URG_MIX.length],
+        chat: i % 7 === 1
       }));
-    });
+    }
   });
   // 38 more between other physicians across all divisions
   const kindPool = [];
@@ -1304,9 +1317,8 @@ const PageRow = ({ p, me, dir, onOpen, extra }) => {
   const live = isNew && (p.urgency === "STAT" || p.urgency === "Urgent");
   const ut = tier(p.urgency);
   const rail = isNew && p.urgency ? ut.c : st.c;
-  const who = dir === "in"
-    ? (svcOfName(p.from) ? `${svcOfName(p.from)} \u00b7 ${p.from}` : p.from)
-    : (p.gapOpen ? p.service : p.to);
+  const who = dir === "in" ? p.from : (p.gapOpen ? p.service : p.to);
+  const svc = dir === "in" ? (svcOfName(p.from) || p.service) : (svcOfName(p.to) || p.service);
   const ident = p.mrn
     ? `${p.idType === "PHN" ? "PHN" : "MRN"} ${p.mrn}${p.second ? ` \u00b7 ${p.second}` : ""}`
     : "general inquiry";
@@ -1324,64 +1336,63 @@ const PageRow = ({ p, me, dir, onOpen, extra }) => {
       borderLeft: `3px solid ${rail}`,
       borderBottom: `1px solid ${T.line}`,
       background: live ? ut.s : "transparent",
-      padding: "8px 4px 8px 8px",
+      padding: "9px 4px 9px 9px",
       cursor: "pointer"
     }
   },
-  // line 1: urgency, the clinical question, and the time
+  // line 1 — WHO: the physician leads, then urgency and time
   /*#__PURE__*/React.createElement("div", {
-    style: { display: "flex", alignItems: "flex-start", gap: 7 }
-  }, /*#__PURE__*/React.createElement("div", {
-    style: { width: 58, flexShrink: 0, paddingTop: 1 }
-  }, /*#__PURE__*/React.createElement(UrgChip, { u: p.urgency, small: true, muted: !isNew })),
+    style: { display: "flex", alignItems: "center", gap: 7 }
+  }, /*#__PURE__*/React.createElement(Avatar, { name: who, size: 26, fontSize: 15 }),
+     /*#__PURE__*/React.createElement("div", { style: { flex: 1, minWidth: 0 } },
+       /*#__PURE__*/React.createElement("div", {
+         style: {
+           fontSize: 13, fontWeight: 600, color: T.ink, lineHeight: 1.2,
+           whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+         }
+       }, who),
+       svc && /*#__PURE__*/React.createElement("div", {
+         style: {
+           fontSize: 10.5, color: T.faint, lineHeight: 1.3,
+           whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+         }
+       }, svc)),
+     /*#__PURE__*/React.createElement("span", {
+       style: { display: "inline-flex", alignItems: "center", gap: 5, flexShrink: 0 }
+     }, /*#__PURE__*/React.createElement(UrgChip, { u: p.urgency, small: true, muted: !isNew }),
+        /*#__PURE__*/React.createElement(UnreadDot, { n: unreadCount(p, me || p.from) }),
+        /*#__PURE__*/React.createElement("span", {
+          style: { fontFamily: T.mono, fontSize: 10, color: T.faint }
+        }, fmt(p.sentAt)))),
+  // line 2 — WHAT: the clinical question
   /*#__PURE__*/React.createElement("div", {
     style: {
-      flex: 1,
-      minWidth: 0,
       fontSize: 12.5,
       fontWeight: isNew ? 600 : 450,
       color: isNew ? T.ink : T.dim,
       lineHeight: 1.35,
+      margin: "5px 0 3px",
       display: "-webkit-box",
       WebkitLineClamp: 2,
       WebkitBoxOrient: "vertical",
       overflow: "hidden"
     }
   }, p.question),
-  /*#__PURE__*/React.createElement("div", {
-    style: {
-      flexShrink: 0,
-      display: "flex",
-      alignItems: "center",
-      gap: 4,
-      paddingTop: 1
-    }
-  }, /*#__PURE__*/React.createElement(UnreadDot, { n: unreadCount(p, me || p.from) }),
-     /*#__PURE__*/React.createElement("span", {
-    style: { fontFamily: T.mono, fontSize: 10, color: T.faint }
-  }, fmt(p.sentAt)))),
-  // line 2: identifiers get the full width -- an MRN must never truncate
+  // line 3 — DETAIL: identifiers and outcome
   /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 10,
       fontWeight: 400,
       color: T.faint,
-      marginTop: 3,
       whiteSpace: "nowrap",
       overflow: "hidden",
       textOverflow: "ellipsis"
     }
-  }, /*#__PURE__*/React.createElement(Avatar, {
-    name: dir === "in" ? p.from : p.to,
-    size: 15,
-    fontSize: 13,
-    style: { display: "inline-block", verticalAlign: "-3px", marginRight: 5 }
-  }), who, " \u00b7 ", /*#__PURE__*/React.createElement("span", {
+  }, /*#__PURE__*/React.createElement("span", {
     style: { fontFamily: T.mono, color: T.dim }
   }, ident), " \u00b7 ", /*#__PURE__*/React.createElement("span", {
     style: { color: acked ? T.ok : p.declined ? T.stat : T.faint, fontWeight: 500 }
   }, outcome)),
-  // an escalation the sender cannot see is worse than none
   (p.escalatedTo || p.escalationExhausted) && !acked && /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex", alignItems: "center", gap: 4, marginTop: 3,
@@ -4491,38 +4502,74 @@ const SenderDetail = ({
   onClick: onBack
 }, "\u2190 Pages"), /*#__PURE__*/React.createElement("div", {
   style: {
-    background: pState(p).s,
-    borderRadius: 8,
-    padding: "8px 10px",
-    marginBottom: 8
+    display: "flex",
+    alignItems: "center",
+    gap: 7,
+    marginBottom: 10
+  }
+}, /*#__PURE__*/React.createElement(Avatar, {
+  name: p.gapOpen ? p.service : p.to,
+  size: 30,
+  fontSize: 13
+}), /*#__PURE__*/React.createElement("div", {
+  style: { minWidth: 0, flex: 1 }
+}, /*#__PURE__*/React.createElement("div", {
+  style: { fontSize: 14, fontWeight: 600, color: T.ink, lineHeight: 1.2 }
+}, p.gapOpen ? `${p.service} (Locating)` : p.to), /*#__PURE__*/React.createElement("div", {
+  style: { fontSize: 11.5, color: T.faint, marginTop: 1 }
+}, svcOfName(p.to) || p.service || "")), /*#__PURE__*/React.createElement(Pill, {
+  c: pState(p).c,
+  bg: pState(p).s
+}, pState(p).label)), /*#__PURE__*/React.createElement("div", {
+  style: {
+    fontSize: 15,
+    fontWeight: 600,
+    color: T.ink,
+    lineHeight: 1.4,
+    marginBottom: 10
+  }
+}, p.question), /*#__PURE__*/React.createElement("div", {
+  style: {
+    background: T.surface,
+    border: `1px solid ${T.line}`,
+    borderLeft: `3px solid ${tier(p.urgency).c}`,
+    borderRadius: 12,
+    padding: "4px 11px",
+    marginBottom: 10
+  }
+}, [
+  ["Urgency", p.urgency || "-", p.urgency === "STAT" ? T.stat : p.urgency === "Urgent" ? T.urgent : null],
+  ["Consult type", p.reason || "-"],
+  ["Service", p.service || "-"],
+  p.mrn ? [p.idType === "PHN" ? "PHN" : "MRN", p.mrn, null, true] : null,
+  p.second ? ["Patient", p.second] : null,
+  p.location ? ["Location", p.location] : null,
+  ["Sent", fmtdt(p.sentAt)],
+  p.escalatedTo ? ["Escalated to", p.escalatedTo, T.stat] : null
+].filter(Boolean).map(([k, v, tone, mono]) => /*#__PURE__*/React.createElement("div", {
+  key: k,
+  style: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    gap: 10,
+    padding: "6px 0",
+    borderTop: k === "Urgency" ? "none" : `1px solid ${T.line}`
   }
 }, /*#__PURE__*/React.createElement("span", {
+  style: { fontSize: 11.5, color: T.faint, flexShrink: 0 }
+}, k), /*#__PURE__*/React.createElement("span", {
   style: {
-    color: pState(p).c,
-    fontWeight: 700,
-    fontSize: 11,
-    letterSpacing: 1
+    fontSize: 12.5,
+    fontWeight: 600,
+    color: tone || T.ink,
+    fontFamily: mono ? T.mono : T.sans,
+    textAlign: "right",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap"
   }
-}, pState(p).label.toUpperCase()), /*#__PURE__*/React.createElement("span", {
-  style: {
-    color: T.dim,
-    fontSize: 11
-  }
-}, " \xB7 ", p.reason, " \xB7 to ", p.gapOpen ? `${p.service} (Locating)` : p.to, " \xB7 ", fmt(p.sentAt))), /*#__PURE__*/React.createElement("div", {
-  style: {
-    fontSize: 13,
-    fontWeight: 450,
-    color: T.ink,
-    marginBottom: 4
-  }
-}, p.question), p.mrn && /*#__PURE__*/React.createElement("div", {
-  style: {
-    fontFamily: T.mono,
-    fontSize: 11,
-    color: T.dim,
-    marginBottom: 8
-  }
-}, p.idType === "PHN" ? "PHN " : "MRN ", p.mrn, " \xB7 ", p.second), p.kind === "broadcast" ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Sec, null, "TEAM ACKNOWLEDGMENT · live"), p.members.map(m => /*#__PURE__*/React.createElement("div", {
+}, v)))), p.kind === "broadcast" ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Sec, null, "TEAM ACKNOWLEDGMENT · live"), p.members.map(m => /*#__PURE__*/React.createElement("div", {
   key: m.name,
   style: {
     display: "flex",
