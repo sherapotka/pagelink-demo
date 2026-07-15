@@ -4675,7 +4675,7 @@ const SenderDetail = ({
     }
   }))))), /*#__PURE__*/React.createElement(Btn, {
     sm: true, soft: true, color: T.dim, onClick: () => setPick(false)
-  }, "Back")) : /*#__PURE__*/React.createElement(React.Fragment, null, onRepage && active && /*#__PURE__*/React.createElement("div", {
+  }, "Back")) : /*#__PURE__*/React.createElement(React.Fragment, null, onRepage && (active || p.declined) && /*#__PURE__*/React.createElement("div", {
     style: { marginTop: 10 }
   }, /*#__PURE__*/React.createElement(Btn, {
     full: true, color: T.blue, onClick: onRepage
