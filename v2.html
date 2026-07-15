@@ -5018,8 +5018,6 @@ const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDi
   const meta = directory.find(d => d.name === p.from) || {};
   const r = roster.find(x => x.service === p.service);
   const waited = Math.max(1, Math.round((Date.now() - p.sentAt) / 60000));
-  const mm = String(Math.floor(left / 60)).padStart(2, "0");
-  const ss = String(left % 60).padStart(2, "0");
   const ut = tier(p.urgency);
   const stat = p.urgency === "STAT";
 
@@ -5127,13 +5125,6 @@ const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDi
        row("Waiting", `${waited} min`, T.urgent)),
 
     React.createElement("div", { style: { flex: 1, minHeight: 10 } }),
-
-    !open && React.createElement("div", {
-      "aria-live": "polite",
-      style: { textAlign: "center", fontSize: 11.5, color: T.faint, marginBottom: 14, flexShrink: 0 }
-    }, "Reminder repeats in ", React.createElement("span", {
-      style: { fontFamily: T.mono, fontWeight: 600, color: T.dim }
-    }, mm, ":", ss)),
 
     // --- stage 1: take it, or don't. Nothing else to read. -----------------
     !open && React.createElement("div", {
@@ -5572,7 +5563,7 @@ const DetailUI = ({
     color: T.stat,
     onClick: () => setStep("reject"),
     style: { marginBottom: 8 }
-  }, "\u2715 Hand back \u00b7 not my patient"), /*#__PURE__*/React.createElement("div", {
+  }, "\u2715 Decline"), /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 6,
@@ -6540,6 +6531,7 @@ function PageLinkDemo() {
   // --- page alert simulation (frontend demo only; no APNs/CallKit/backend) ---
   const [banner, setBanner] = useState(null);
   const [lockPreview, setLockPreview] = useState(null);
+  const [forceCall, setForceCall] = useState(null);
   const [declined, setDeclined] = useState(false);
   const [alertSound, setAlertSound] = useState(false);
   const [lastAlert, setLastAlert] = useState(null);
@@ -6643,6 +6635,12 @@ function PageLinkDemo() {
     t: Date.now(),
     label
   }, ...s]);
+  // Something to preview with, so the alert demos work standalone rather than
+  // requiring the whole compose-and-send flow first.
+  const demoPage = () => pages.find(p => p.to === RECEIVER && !p.events.some(e => e.type === "ACK") && !p.declined)
+                       || pages.find(p => p.to === RECEIVER)
+                       || pages[0]
+                       || null;
   // raise the in-app banner on the receiving phone when a page arrives
   const raiseAlert = p => {
     if (!ENABLE_NOTIFICATION_DEMO) return;
@@ -7241,8 +7239,8 @@ function PageLinkDemo() {
       fontFamily: T.sans, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6
     }
   }, /*#__PURE__*/React.createElement(Icon, { name: "phone", size: 12 }), "Phone at rest"),
-     ENABLE_NOTIFICATION_DEMO && lastAlert && /*#__PURE__*/React.createElement("button", {
-    onClick: () => { setBanner(null); setLockPreview(lastAlert); },
+     ENABLE_NOTIFICATION_DEMO && /*#__PURE__*/React.createElement("button", {
+    onClick: () => { const d = lastAlert || (demoPage() && toAlert(demoPage())); if (!d) return; setBanner(null); setForceCall(null); setLockPreview(d); },
     title: "Simulation only \u00b7 no real notification, call or device alert is sent",
     style: {
       background: T.surface, color: T.dim, border: `1px solid ${T.line}`,
@@ -7250,14 +7248,23 @@ function PageLinkDemo() {
       fontFamily: T.sans, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6
     }
   }, /*#__PURE__*/React.createElement(Icon, { name: "phone", size: 12 }), "Preview recipient alert"),
-     ENABLE_NOTIFICATION_DEMO && lastAlert && /*#__PURE__*/React.createElement("button", {
-    onClick: () => { setLockPreview(null); setBanner(lastAlert); },
+     ENABLE_NOTIFICATION_DEMO && /*#__PURE__*/React.createElement("button", {
+    onClick: () => { const d = lastAlert || (demoPage() && toAlert(demoPage())); if (!d) return; setLockPreview(null); setForceCall(null); setRxHome(true); setBanner(d); },
     style: {
       background: T.surface, color: T.dim, border: `1px solid ${T.line}`,
       borderRadius: 8, padding: "6px 11px", fontSize: 11.5, fontWeight: 700,
       fontFamily: T.sans, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6
     }
-  }, /*#__PURE__*/React.createElement(Icon, { name: "pager", size: 12 }), "Replay banner"), /*#__PURE__*/React.createElement("button", {
+  }, /*#__PURE__*/React.createElement(Icon, { name: "pager", size: 12 }), "Show banner"),
+     ENABLE_NOTIFICATION_DEMO && /*#__PURE__*/React.createElement("button", {
+    onClick: () => { const d = demoPage(); if (!d) return; setBanner(null); setLockPreview(null); setForceCall(d); },
+    title: "Open the reminder call without paging first",
+    style: {
+      background: T.surface, color: T.dim, border: `1px solid ${T.line}`,
+      borderRadius: 8, padding: "6px 11px", fontSize: 11.5, fontWeight: 700,
+      fontFamily: T.sans, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6
+    }
+  }, /*#__PURE__*/React.createElement(Icon, { name: "phone", size: 12 }), "Show call"), /*#__PURE__*/React.createElement("button", {
     onClick: () => setTheme(t => t === "dark" ? "light" : "dark"),
     "aria-label": theme === "dark" ? "Switch to day theme" : "Switch to night theme",
     title: "Night shift is the case this product is really designed for",
@@ -7507,7 +7514,7 @@ function PageLinkDemo() {
         setOpenOutR(null);
       }
     })
-  }, rxHome && !lockPreview && !declined && !ringing && !callWith && /*#__PURE__*/React.createElement(HomeScreen, {
+  }, rxHome && !lockPreview && !declined && !ringing && !callWith && !forceCall && /*#__PURE__*/React.createElement(HomeScreen, {
     unread: incoming.filter(p => !p.events.some(e => e.type === "ACK") && !p.declined && !p.completedAt && !p.billing).length,
     now: Date.now(),
     onOpen: () => setRxHome(false)
@@ -7528,6 +7535,14 @@ function PageLinkDemo() {
   }) : callWith ? /*#__PURE__*/React.createElement(InAppCall, {
     withWhom: callWith,
     onEnd: () => setCallWith(null)
+  }) : forceCall ? /*#__PURE__*/React.createElement(CallScreen, {
+    p: forceCall,
+    me: RECEIVER,
+    directory: directory,
+    roster: roster,
+    onAccept: () => { setForceCall(null); setRxHome(false); accept(forceCall.id, true); },
+    onView: () => { setForceCall(null); setRxHome(false); setOpenId(forceCall.id); },
+    onDismiss: () => setForceCall(null)
   }) : ringing ? /*#__PURE__*/React.createElement(CallScreen, {
     p: ringing,
     me: RECEIVER,
