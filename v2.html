@@ -4922,8 +4922,12 @@ const PROD_TIMING = { bannerMs: 0, reminderMs: 30 * 60000, escalateMs: 60 * 6000
 const RING_SECONDS = DEMO_TIMING.ringSeconds;
 
 const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDismiss }) => {
+  // Two stages. The incoming call is deliberately bare: a woken physician should only
+  // have to decide "take it or not", not read a card. Details come after the pager tap.
+  const [open, setOpen] = useState(false);
   const [left, setLeft] = useState(RING_SECONDS);
   useEffect(() => {
+    setOpen(false);
     setLeft(RING_SECONDS);
     const t = setInterval(() => setLeft(s => (s > 0 ? s - 1 : 0)), 1000);
     return () => clearInterval(t);
@@ -4931,7 +4935,6 @@ const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDi
 
   const meta = directory.find(d => d.name === p.from) || {};
   const r = roster.find(x => x.service === p.service);
-  const pos = r ? r.oncall.indexOf(p.from) : -1;
   const waited = Math.max(1, Math.round((Date.now() - p.sentAt) / 60000));
   const mm = String(Math.floor(left / 60)).padStart(2, "0");
   const ss = String(left % 60).padStart(2, "0");
@@ -4945,6 +4948,7 @@ const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDi
       fontSize: 11, fontWeight: 600, color: T.ink, whiteSpace: "nowrap"
     }
   }, React.createElement("span", { style: { color: tone, fontWeight: 500 } }, label), value);
+
   const row = (label, value, tone) => React.createElement("div", {
     style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 10, padding: "6px 0" }
   }, React.createElement("span", { style: { fontSize: 11, color: T.faint, flexShrink: 0 } }, label),
@@ -4955,6 +4959,24 @@ const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDi
        }
      }, value));
 
+  // circular call action, FaceTime-scale
+  const action = (bg, label, icon, onClick, big) => React.createElement("button", {
+    onClick: onClick, "aria-label": label,
+    style: {
+      display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 7,
+      background: "none", border: "none", cursor: "pointer", padding: 0
+    }
+  }, React.createElement("span", {
+    style: {
+      width: big ? 68 : 68, height: big ? 68 : 68, borderRadius: 999, background: bg,
+      color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center",
+      boxShadow: `0 6px 18px ${bg}55`
+    }
+  }, React.createElement(Icon, { name: icon, size: 27, sw: 2.2 })),
+     React.createElement("span", {
+       style: { fontSize: 12, fontWeight: 600, color: T.dim, fontFamily: T.sans }
+     }, label));
+
   return React.createElement("div", {
     role: "dialog", "aria-modal": "true",
     "aria-label": `Reminder: ${p.urgency || ""} page from ${p.from} awaiting your response`,
@@ -4962,13 +4984,12 @@ const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDi
     style: {
       position: "absolute", inset: 0, zIndex: 55, background: T.bg,
       display: "flex", flexDirection: "column",
-      padding: "22px 16px calc(16px + env(safe-area-inset-bottom))",
-      boxSizing: "border-box"
+      padding: "22px 16px calc(18px + env(safe-area-inset-bottom))",
+      boxSizing: "border-box", overflowY: open ? "auto" : "hidden"
     }
   },
-    // --- brand + reminder label -------------------------------------------
     React.createElement("div", {
-      style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 18 }
+      style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 16, flexShrink: 0 }
     }, React.createElement("span", {
       style: {
         width: 16, height: 16, borderRadius: 4, background: T.blue, color: "#fff",
@@ -4978,44 +4999,38 @@ const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDi
        React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: T.dim, letterSpacing: .4 } }, "PageLink"),
        React.createElement("span", {
          style: {
-           marginLeft: 2, padding: "2px 7px", borderRadius: 5, background: T.urgentSoft,
-           color: T.urgent, fontSize: 9.5, fontWeight: 800, letterSpacing: .8
+           marginLeft: 2, padding: "2px 7px", borderRadius: 5,
+           background: stat ? T.statSoft : T.urgentSoft, color: stat ? T.stat : T.urgent,
+           fontSize: 9.5, fontWeight: 800, letterSpacing: .8
          }
-       }, "REMINDER")),
+       }, stat ? "STAT REMINDER" : "REMINDER")),
 
-    // --- the physician leads ----------------------------------------------
-    React.createElement("div", { className: "pl-call-a", style: { textAlign: "center" } },
+    // --- the physician is the hero in both stages -------------------------
+    React.createElement("div", { className: "pl-call-a", style: { textAlign: "center", flexShrink: 0 } },
       React.createElement("div", { style: { position: "relative", display: "inline-block", marginBottom: 12 } },
         React.createElement("div", {
-          className: "pl-ring",
-          style: { borderRadius: 999, boxShadow: `0 0 0 5px ${T.surface}, 0 0 0 7px ${ut.s}`, display: "inline-flex" }
-        }, React.createElement(Avatar, { name: p.from, size: 92, fontSize: 34 })),
-        React.createElement("span", {
-          "aria-hidden": "true",
+          className: open ? null : "pl-ring",
           style: {
-            position: "absolute", right: -2, bottom: 2, width: 30, height: 30, borderRadius: 999,
-            background: T.blue, color: "#fff", border: `3px solid ${T.bg}`,
-            display: "inline-flex", alignItems: "center", justifyContent: "center"
+            borderRadius: 999, display: "inline-flex",
+            boxShadow: `0 0 0 5px ${T.surface}, 0 0 0 7px ${ut.s}`,
+            transition: "all .3s cubic-bezier(.16,1,.3,1)"
           }
-        }, React.createElement(Icon, { name: "phone", size: 13, sw: 2.4 }))),
-      React.createElement("div", { style: { fontFamily: T.disp, fontSize: 22, fontWeight: 700, color: T.ink, letterSpacing: -.4 } }, p.from),
+        }, React.createElement(Avatar, { name: p.from, size: open ? 68 : 108, fontSize: open ? 26 : 40 }))),
+      React.createElement("div", {
+        style: { fontFamily: T.disp, fontSize: open ? 19 : 24, fontWeight: 700, color: T.ink, letterSpacing: -.4 }
+      }, p.from),
       React.createElement("div", { style: { fontSize: 13, color: T.dim, marginTop: 3 } },
         [meta.title, svcOfName(p.from) || meta.service].filter(Boolean).join(" · ")),
-      pos >= 0 && React.createElement("div", { style: { fontSize: 12, color: T.faint, marginTop: 1 } },
-        "On call", r && r.until ? ` · until ${r.until}` : ""),
-      React.createElement("div", {
-        style: { fontSize: 14, fontWeight: 600, color: T.ink, marginTop: 14 }
-      }, "Awaiting your response"),
-      React.createElement("div", { style: { fontSize: 12, color: T.dim, marginTop: 2 } },
-        "This page has not been acknowledged.")),
+      React.createElement("div", { style: { fontSize: 12.5, color: T.faint, marginTop: 2 } },
+        p.service ? `${p.service} · ` : "", p.urgency || "", " · waiting ", waited, " min")),
 
-    // --- why -----------------------------------------------------------------
-    React.createElement("div", {
+    // --- stage 2: the whole page, only once they have taken the call -------
+    open && React.createElement("div", {
       className: "pl-call-b",
       style: {
-        marginTop: 16, background: T.surface, border: `1px solid ${T.line}`,
+        marginTop: 14, background: T.surface, border: `1px solid ${T.line}`,
         borderLeft: `3px solid ${ut.c}`, borderRadius: 14, padding: "8px 12px",
-        boxShadow: "0 1px 2px rgba(16,36,62,.04)"
+        boxShadow: "0 1px 2px rgba(16,36,62,.04)", flexShrink: 0
       }
     }, (p.location || p.ageBand) && React.createElement("div", {
          style: { display: "flex", flexWrap: "wrap", gap: 5, padding: "6px 0 2px" }
@@ -5026,43 +5041,52 @@ const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDi
        row("Urgency", p.urgency || "-", stat ? T.stat : p.urgency === "Urgent" ? T.urgent : T.ink),
        row("Reason", p.question || "-"),
        p.mrn && row(p.idType === "PHN" ? "PHN" : "MRN", p.mrn),
+       row("Sent", fmtdt(p.sentAt)),
        row("Waiting", `${waited} min`, T.urgent)),
 
-    React.createElement("div", { style: { flex: 1, minHeight: 8 } }),
+    React.createElement("div", { style: { flex: 1, minHeight: 10 } }),
 
-    React.createElement("div", {
+    !open && React.createElement("div", {
       "aria-live": "polite",
-      style: { textAlign: "center", fontSize: 11.5, color: T.faint, marginBottom: 12 }
+      style: { textAlign: "center", fontSize: 11.5, color: T.faint, marginBottom: 14, flexShrink: 0 }
     }, "Reminder repeats in ", React.createElement("span", {
       style: { fontFamily: T.mono, fontWeight: 600, color: T.dim }
     }, mm, ":", ss)),
 
-    // --- actions: filled / outlined / text ---------------------------------
-    React.createElement("div", { className: "pl-call-c", style: { display: "flex", flexDirection: "column", gap: 8 } },
-      React.createElement("button", {
-        onClick: onAccept,
-        style: {
-          width: "100%", minHeight: 50, borderRadius: 14, border: "none", cursor: "pointer",
-          background: T.ok, color: "#fff", fontFamily: T.sans, fontSize: 15, fontWeight: 700,
-          display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7
-        }
-      }, React.createElement(Icon, { name: "check", size: 16, sw: 2.6 }), "Acknowledge"),
-      React.createElement("button", {
-        onClick: onView,
-        style: {
-          width: "100%", minHeight: 46, borderRadius: 14, cursor: "pointer",
-          background: T.surface, color: T.blue, border: `1px solid ${T.line}`,
-          fontFamily: T.sans, fontSize: 14, fontWeight: 600
-        }
-      }, "Open page"),
-      React.createElement("button", {
-        onClick: onDismiss,
-        style: {
-          width: "100%", minHeight: 40, borderRadius: 12, cursor: "pointer",
-          background: "none", color: T.faint, border: "none",
-          fontFamily: T.sans, fontSize: 13, fontWeight: 500
-        }
-      }, "Can't talk now · silence")));
+    // --- stage 1: take it, or don't. Nothing else to read. -----------------
+    !open && React.createElement("div", {
+      className: "pl-call-c",
+      style: { display: "flex", justifyContent: "center", gap: 46, flexShrink: 0 }
+    }, action("#E5384F", "Decline", "x", onDismiss),
+       action(T.ok, "Pager", "pager", () => setOpen(true))),
+
+    // --- stage 2 actions ---------------------------------------------------
+    open && React.createElement("div", {
+      className: "pl-call-c", style: { display: "flex", flexDirection: "column", gap: 8, flexShrink: 0 }
+    }, React.createElement("button", {
+      onClick: onAccept,
+      style: {
+        width: "100%", minHeight: 50, borderRadius: 14, border: "none", cursor: "pointer",
+        background: T.ok, color: "#fff", fontFamily: T.sans, fontSize: 15, fontWeight: 700,
+        display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7
+      }
+    }, React.createElement(Icon, { name: "check", size: 16, sw: 2.6 }), "Acknowledge"),
+       React.createElement("button", {
+      onClick: onView,
+      style: {
+        width: "100%", minHeight: 46, borderRadius: 14, cursor: "pointer",
+        background: T.surface, color: T.blue, border: `1px solid ${T.line}`,
+        fontFamily: T.sans, fontSize: 14, fontWeight: 600
+      }
+    }, "Open full page"),
+       React.createElement("button", {
+      onClick: () => setOpen(false),
+      style: {
+        width: "100%", minHeight: 40, borderRadius: 12, cursor: "pointer",
+        background: "none", color: T.faint, border: "none",
+        fontFamily: T.sans, fontSize: 13, fontWeight: 500
+      }
+    }, "Back")));
 };
 
 const InAppCall = ({
