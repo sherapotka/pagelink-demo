@@ -6458,6 +6458,33 @@ function PageLinkDemo() {
     };
   }, [stage]);
   const [pages, setPages] = useState([]);
+  // ?role=sender | ?role=receiver -> show a single phone and sync with the other window
+  const soloRole = typeof location !== "undefined" ? new URLSearchParams(location.search).get("role") : null;
+  const bcRef = useRef(null);
+  const fromRemote = useRef(false);
+  useEffect(() => {
+    if (typeof BroadcastChannel === "undefined") return;
+    const bc = new BroadcastChannel("pagelink-demo");
+    bcRef.current = bc;
+    bc.onmessage = e => {
+      if (!e.data) return;
+      if (e.data.type === "pages") {
+        fromRemote.current = true;      // do not echo it straight back
+        setPages(e.data.pages);
+      } else if (e.data.type === "hello" && bcRef.current) {
+        // a window just opened: hand it the current state
+        bcRef.current.postMessage({ type: "pages", pages: pagesRef.current });
+      }
+    };
+    bc.postMessage({ type: "hello" });
+    return () => bc.close();
+  }, []);
+  const pagesRef = useRef(pages);
+  useEffect(() => {
+    pagesRef.current = pages;
+    if (fromRemote.current) { fromRemote.current = false; return; }
+    if (bcRef.current) bcRef.current.postMessage({ type: "pages", pages: pages });
+  }, [pages]);
   const [roster, setRoster] = useState(INITIAL_ROSTER);
   const [directory, setDirectory] = useState(DIRECTORY_SEED);
   const services = useMemo(() => Array.from(new Set([...SERVICES, ...directory.map(d => d.service)])), [directory]);
@@ -7270,11 +7297,11 @@ function PageLinkDemo() {
     style: {
       display: "flex",
       gap: 24,
-      justifyContent: "space-evenly",
+      justifyContent: soloRole ? "center" : "space-evenly",
       alignItems: "flex-start",
       flexWrap: "wrap"
     }
-  }, view === "user" && /*#__PURE__*/React.createElement(Phone, {
+  }, view === "user" && soloRole !== "receiver" && /*#__PURE__*/React.createElement(Phone, {
     title: `${SENDER} · Internal Medicine`,
     sub: "sends pages",
     badge: "Sender",
@@ -7380,6 +7407,7 @@ function PageLinkDemo() {
       alignSelf: "center",
       flex: 1,
       // the flow indicator column sets the distance between the phones
+      display: soloRole ? "none" : "flex",
       maxWidth: 190,
       minWidth: 110,
       display: "flex",
@@ -7454,7 +7482,7 @@ function PageLinkDemo() {
       textAlign: "right",
       fontFamily: T.disp
     }
-  }, "← REPLY"))), view === "user" && /*#__PURE__*/React.createElement(Phone, {
+  }, "← REPLY"))), view === "user" && soloRole !== "sender" && /*#__PURE__*/React.createElement(Phone, {
     title: `${RECEIVER} · Neurosurgery`,
     sub: "receives pages",
     badge: "Receiver",
