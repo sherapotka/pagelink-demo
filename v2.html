@@ -1478,6 +1478,8 @@ const unreadCount = (p, me) => (p.thread || []).filter(m => m.who !== me && m.t 
 const UnreadDot = ({
   n
 }) => !n ? null : /*#__PURE__*/React.createElement("span", {
+  title: `${n} unread message${n > 1 ? "s" : ""}`,
+  "aria-label": `${n} unread message${n > 1 ? "s" : ""}`,
   style: {
     minWidth: 16,
     height: 16,
@@ -1489,11 +1491,12 @@ const UnreadDot = ({
     display: "inline-flex",
     alignItems: "center",
     justifyContent: "center",
+    gap: 2,
     padding: "0 4px",
     boxSizing: "border-box",
     flexShrink: 0
   }
-}, n);
+}, /*#__PURE__*/React.createElement(Icon, { name: "message", size: 8, sw: 2.8 }), n);
 const Btn = ({
   onClick,
   color = T.blue,
@@ -2281,7 +2284,7 @@ const Calendar = ({
     soft: !selfMode,
     color: T.blue,
     onClick: () => setSelfMode(v => !v)
-  }, /*#__PURE__*/React.createElement(Icon, { name: "calendar", size: 13, style: { display: "inline-block", verticalAlign: "-2px", marginRight: 6 } }), selfMode ? "My schedule · showing your shifts" : "My schedule")) : null, !selfOn && /*#__PURE__*/React.createElement("div", {
+  }, /*#__PURE__*/React.createElement(Icon, { name: "calendar", size: 13, style: { display: "inline-block", verticalAlign: "-2px", marginRight: 6 } }), selfMode ? "My calls · showing your shifts" : "My calls")) : null, !selfOn && /*#__PURE__*/React.createElement("div", {
     style: {
       marginBottom: 8
     }
@@ -4154,8 +4157,9 @@ const PhysicianOption = ({ name, title, position, until, selected, onSelect, ind
     h("div", { style: { flex: 1, minWidth: 0 } },
       h("div", { style: { fontSize: 15, fontWeight: 600, color: T.ink, lineHeight: "18px" } }, name),
       h("div", { style: { fontSize: 12.5, color: T.dim, lineHeight: "16px", marginTop: 1 } },
-        title || "Physician", " · ",
-        h("span", { style: { color: selected ? T.blue : T.dim, fontWeight: 600 } }, position)),
+        title || "Physician",
+        position ? " · " : "",
+        position ? h("span", { style: { color: selected ? T.blue : T.dim, fontWeight: 600 } }, position) : null),
       h("div", { style: { marginTop: 1, lineHeight: "14px" } }, h(StatusBadge, av))),
     h("span", {
       "aria-hidden": "true",
@@ -4194,22 +4198,25 @@ const OnCallTeam = ({ service, until, members, selected, onSelect, loading }) =>
       : h("div", { role: "listbox", "aria-label": `On-call physicians for ${service}` },
           members.map((m, i) => h(PhysicianOption, {
             key: m.name, index: i, name: m.name, title: m.title,
-            position: "On call", until: until,
+            // only the first on the roster holds the call; the rest are simply available
+            position: i === 0 ? "On call" : "",
+            until: i === 0 ? until : null,
             selected: selected === m.name, onSelect: () => onSelect(m.name)
           }))));
 };
 
 // --- ConsultTypeSelector: chip group ---------------------------------------
 const ConsultTypeSelector = ({ value, onChange, options }) =>
-  h("div", { role: "radiogroup", "aria-label": "Consult type", style: { display: "flex", flexWrap: "wrap", gap: S.sm } },
+  h("div", { role: "radiogroup", "aria-label": "Consult type", style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: S.sm, alignItems: "center" } },
     options.map(o => {
       const on = value === o;
       return h("button", {
         key: o, role: "radio", "aria-checked": on ? "true" : "false",
         onClick: () => onChange(o),
         style: {
-          minHeight: 44, padding: "0 14px", borderRadius: RAD.chip, cursor: "pointer",
-          fontSize: 14, fontFamily: T.sans, fontWeight: on ? 600 : 500,
+          height: 44, boxSizing: "border-box", padding: "0 12px", borderRadius: 10, cursor: "pointer",
+          fontSize: 13, fontFamily: T.sans, fontWeight: on ? 600 : 500, lineHeight: "1",
+          justifyContent: "center",
           background: on ? T.blue : T.surface, color: on ? "#fff" : T.ink,
           border: `1.5px solid ${on ? T.blue : T.line}`,
           display: "inline-flex", alignItems: "center", gap: 6
@@ -4435,8 +4442,8 @@ const ComposerUI = ({ draft, setDraft, roster, directory, services, deviceDark, 
               key: t, role: "radio", "aria-checked": on ? "true" : "false",
               onClick: () => set({ idType: t, mrn: "" }),
               style: {
-                minHeight: 44, padding: "0 16px", borderRadius: RAD.chip, cursor: "pointer",
-                fontSize: 14, fontFamily: T.sans, fontWeight: on ? 600 : 500,
+                height: 44, boxSizing: "border-box", padding: "0 16px", borderRadius: 10, cursor: "pointer",
+                fontSize: 13, fontFamily: T.sans, fontWeight: on ? 600 : 500, lineHeight: "1",
                 background: on ? T.blue : T.surface, color: on ? "#fff" : T.ink,
                 border: `1.5px solid ${on ? T.blue : T.line}`
               }
@@ -4774,11 +4781,16 @@ const PageNotificationBanner = ({ alert, onView, onAck, onClose }) => {
             cursor: "pointer", display: "inline-flex", alignItems: "center", justifyContent: "center"
           }
         }, React.createElement(Icon, { name: "x", size: 12, sw: 2.4 })))),
-    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 6 } },
-      React.createElement(Avatar, { name: alert.senderName, size: 22, fontSize: 15 }),
-      React.createElement("div", { style: { fontSize: 12, fontWeight: 600, color: T.ink, lineHeight: 1.3, minWidth: 0 } },
-        alert.summary)),
-    alert.service && React.createElement("div", { style: { fontSize: 10.5, color: T.faint, marginTop: 1 } }, alert.service),
+    React.createElement("div", { style: { display: "flex", alignItems: "center", gap: 7 } },
+      React.createElement(Avatar, { name: alert.senderName, size: 26, fontSize: 15 }),
+      React.createElement("div", { style: { minWidth: 0, flex: 1 } },
+        React.createElement("div", {
+          style: { fontSize: 13, fontWeight: 600, color: T.ink, lineHeight: 1.2,
+                   whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }
+        }, alert.senderName),
+        React.createElement("div", {
+          style: { fontSize: 10.5, color: T.faint, lineHeight: 1.3 }
+        }, [alert.senderDepartment, alert.service ? `\u2192 ${alert.service}` : null].filter(Boolean).join(" ")))),
     React.createElement("div", {
       style: { fontSize: 11.5, color: T.dim, marginTop: 3, lineHeight: 1.35, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }
     }, alert.question),
