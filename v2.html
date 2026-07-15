@@ -6469,8 +6469,12 @@ function PageLinkDemo() {
     bc.onmessage = e => {
       if (!e.data) return;
       if (e.data.type === "pages") {
+        const seen = new Set((pagesRef.current || []).map(p => p.id));
+        const arrived = (e.data.pages || []).find(p => !seen.has(p.id) && p.to === RECEIVER);
         fromRemote.current = true;      // do not echo it straight back
         setPages(e.data.pages);
+        // a page that lands here must announce itself in THIS window
+        if (arrived && alertRef.current) alertRef.current(arrived);
       } else if (e.data.type === "hello" && bcRef.current) {
         // a window just opened: hand it the current state
         bcRef.current.postMessage({ type: "pages", pages: pagesRef.current });
@@ -6480,6 +6484,7 @@ function PageLinkDemo() {
     return () => bc.close();
   }, []);
   const pagesRef = useRef(pages);
+  const alertRef = useRef(null);
   useEffect(() => {
     pagesRef.current = pages;
     if (fromRemote.current) { fromRemote.current = false; return; }
@@ -6644,6 +6649,7 @@ function PageLinkDemo() {
     setLastAlert(a);
     setBanner(a);
   };
+  alertRef.current = raiseAlert;
   const send = (d, from = SENDER) => {
     if (d.urgency === "STAT" && from === SENDER) {
       const active = pages.find(q => q.urgency === "STAT" && q.mrn === d.mrn && q.service === d.service && !q.billing && !q.declined && q.kind !== "broadcast");
