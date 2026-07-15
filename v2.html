@@ -3174,7 +3174,7 @@ const Dashboard = ({
     soft: histView !== "pages",
     color: T.blue,
     onClick: () => setHistView("pages")
-  }, "Page history"), /*#__PURE__*/React.createElement(Btn, {
+  }, "Paging history"), /*#__PURE__*/React.createElement(Btn, {
     sm: true,
     full: true,
     soft: histView !== "billing",
@@ -3336,7 +3336,7 @@ const Dashboard = ({
       alignSelf: "flex-start",
       padding: 0
     }
-  }, "Clear filters")), histView === "pages" ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Sec, null, `PAGE HISTORY \xB7 ${doneF.length} of ${done.length}`), doneF.length === 0 && /*#__PURE__*/React.createElement(Note, null, done.length === 0 ? "Accepted, done, rejected, and cancelled pages appear here for your records." : "No pages match your search."), doneF.map(p => /*#__PURE__*/React.createElement("div", {
+  }, "Clear filters")), histView === "pages" ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Sec, null, `PAGING HISTORY \xB7 ${doneF.length} of ${done.length}`), doneF.length === 0 && /*#__PURE__*/React.createElement(Note, null, done.length === 0 ? "Accepted, done, rejected, and cancelled pages appear here for your records." : "No pages match your search."), doneF.map(p => /*#__PURE__*/React.createElement("div", {
     key: p.id,
     onClick: () => setHistId(p.id),
     style: {
@@ -5404,12 +5404,12 @@ const DetailUI = ({
       fontSize: 12,
       fontWeight: 600
     }
-  }, "\u2713 Accepted. ", p.members.filter(m => m.ack).length, "/", p.members.length, " of team responded.") : !acked && !p.declined && step === null ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
+  }, "\u2713 Accepted. ", p.members.filter(m => m.ack).length, "/", p.members.length, " of team responded.") : !p.declined && !p.completedAt && !p.billing && step === null ? /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement("div", {
     style: {
       display: "flex",
       gap: 6
     }
-  }, /*#__PURE__*/React.createElement(Btn, {
+  }, !acked && /*#__PURE__*/React.createElement(Btn, {
     full: true,
     color: T.ok,
     onClick: onAccept
@@ -5417,7 +5417,7 @@ const DetailUI = ({
     full: true,
     color: T.stat,
     onClick: () => setStep("reject")
-  }, "\u2715 Decline")), /*#__PURE__*/React.createElement("div", {
+  }, acked ? "\u2715 Hand back" : "\u2715 Decline")), /*#__PURE__*/React.createElement("div", {
     style: {
       marginTop: 6
     }
@@ -5924,7 +5924,7 @@ const AdminPageHistory = ({
   const ql = q.trim().toLowerCase();
   const rows = pages.filter(p => advMatch(p, adv) && (statusF === "all" || pageStatus(p) === statusF) && (!ql || [p.question, p.from, p.to, p.service, p.mrn, p.urgency, pageStatus(p)].filter(Boolean).join(" ").toLowerCase().includes(ql))).slice().sort((a, b) => b.sentAt - a.sentAt);
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
-  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Sec, null, `PAGE HISTORY \xB7 ${rows.length} of ${pages.length}${scope ? ` \xB7 ${scope}` : ""}`), /*#__PURE__*/React.createElement("input", {
+  return /*#__PURE__*/React.createElement(React.Fragment, null, /*#__PURE__*/React.createElement(Sec, null, `PAGING HISTORY \xB7 ${rows.length} of ${pages.length}${scope ? ` \xB7 ${scope}` : ""}`), /*#__PURE__*/React.createElement("input", {
     style: {
       width: "100%",
       boxSizing: "border-box",
@@ -6576,11 +6576,13 @@ function PageLinkDemo() {
       }
     }
     const gap = !d.to;
+    const newId = nid();
+    const newSentAt = Date.now();
     setPages(x => [{
-      id: nid(),
+      id: newId,
       from,
       ...d,
-      sentAt: Date.now(),
+      sentAt: newSentAt,
       simBase: 0,
       gapOpen: gap,
       declined: false,
@@ -6598,7 +6600,7 @@ function PageLinkDemo() {
       setDraftR(null);
     }
     // simulated arrival alert on the receiving phone
-    raiseAlert(Object.assign({}, d, { from: from, sentAt: Date.now(), id: "a" + Date.now() }));
+    raiseAlert(Object.assign({}, d, { from: from, sentAt: newSentAt, id: newId }));
     setDupAlert(null);
   };
   const sendBroadcast = () => setPages(x => [{
@@ -7419,7 +7421,7 @@ function PageLinkDemo() {
   }), banner && !lockPreview && !declined && /*#__PURE__*/React.createElement(PageNotificationBanner, {
     alert: banner,
     onView: () => { setBanner(null); setRxHome(false); setRxView("pages"); setOpenId(banner.id); },
-    onAck: () => { const b = banner; setBanner(null); const t = pages.find(x => x.question === b.question && x.to === RECEIVER); if (t) accept(t.id, true); },
+    onAck: () => { const b = banner; setBanner(null); setRxHome(false); accept(b.id, true); },
     onClose: () => setBanner(null)
   }), declined ? /*#__PURE__*/React.createElement(DeclineNotice, {
     onClose: () => { setDeclined(false); setLockPreview(null); }
@@ -7689,7 +7691,7 @@ function PageLinkDemo() {
       marginBottom: 10,
       flexWrap: "wrap"
     }
-  }, [["board", "Live board"], ["users", "Users"], ["history", "Page history"], ["analytics", "Analytics"]].map(([k, l]) => /*#__PURE__*/React.createElement("button", {
+  }, [["board", "Live board"], ["users", "Users"], ["history", "Paging history"], ["analytics", "Analytics"]].map(([k, l]) => /*#__PURE__*/React.createElement("button", {
     key: k,
     onClick: () => setLocTab(k),
     style: {
@@ -7902,7 +7904,7 @@ function PageLinkDemo() {
       borderBottom: `1px solid ${T.line}`,
       marginBottom: 10
     }
-  }, [["scheduling", "Scheduling"], ["users", "Users"], ["history", "Page history"], ["analytics", "Analytics"], ["requests", `Requests${scheduleRequests.length + profileRequests.length ? ` · ${scheduleRequests.length + profileRequests.length}` : ""}`]].map(([k, l]) => /*#__PURE__*/React.createElement("button", {
+  }, [["scheduling", "Scheduling"], ["users", "Users"], ["history", "Paging history"], ["analytics", "Analytics"], ["requests", `Requests${scheduleRequests.length + profileRequests.length ? ` · ${scheduleRequests.length + profileRequests.length}` : ""}`]].map(([k, l]) => /*#__PURE__*/React.createElement("button", {
     key: k,
     onClick: () => setAdminTab(k),
     style: {
