@@ -5017,7 +5017,10 @@ const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDi
 
   const meta = directory.find(d => d.name === p.from) || {};
   const r = roster.find(x => x.service === p.service);
-  const waited = Math.max(1, Math.round((Date.now() - p.sentAt) / 60000));
+  const waitedMin = Math.max(1, Math.round((Date.now() - p.sentAt) / 60000));
+  const waited = waitedMin < 60 ? `${waitedMin} min`
+    : waitedMin < 1440 ? `${Math.floor(waitedMin / 60)} h ${waitedMin % 60} min`
+    : `${Math.floor(waitedMin / 1440)} d`;
   const ut = tier(p.urgency);
   const stat = p.urgency === "STAT";
 
@@ -5054,7 +5057,7 @@ const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDi
     }
   }, React.createElement(Icon, { name: icon, size: 27, sw: 2.2 })),
      React.createElement("span", {
-       style: { fontSize: 12, fontWeight: 600, color: T.dim, fontFamily: T.sans }
+       style: { fontSize: 12.5, fontWeight: 600, color: "rgba(255,255,255,.85)", fontFamily: T.sans }
      }, label));
 
   return React.createElement("div", {
@@ -5062,10 +5065,13 @@ const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDi
     "aria-label": `Reminder: ${p.urgency || ""} page from ${p.from} awaiting your response`,
     className: "pl-call",
     style: {
-      position: "absolute", inset: 0, zIndex: 55, background: T.bg,
+      position: "absolute", inset: 0, zIndex: 55,
+      background: open ? T.bg : "#05080D",
+      color: open ? T.ink : "#fff",
       display: "flex", flexDirection: "column",
       padding: "22px 16px calc(18px + env(safe-area-inset-bottom))",
-      boxSizing: "border-box", overflowY: open ? "auto" : "hidden"
+      boxSizing: "border-box", overflowY: open ? "auto" : "hidden",
+      transition: "background .3s ease"
     }
   },
     React.createElement("div", {
@@ -5076,7 +5082,7 @@ const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDi
         display: "inline-flex", alignItems: "center", justifyContent: "center"
       }
     }, React.createElement(Icon, { name: "pager", size: 10, sw: 2.2 })),
-       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: T.dim, letterSpacing: .4 } }, "PageLink"),
+       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: open ? T.dim : "rgba(255,255,255,.75)", letterSpacing: .4 } }, "PageLink"),
        React.createElement("span", {
          style: {
            marginLeft: 2, padding: "2px 7px", borderRadius: 5,
@@ -5092,17 +5098,19 @@ const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDi
           className: open ? null : "pl-ring",
           style: {
             borderRadius: 999, display: "inline-flex",
-            boxShadow: `0 0 0 5px ${T.surface}, 0 0 0 7px ${ut.s}`,
+            boxShadow: open ? `0 0 0 5px ${T.surface}, 0 0 0 7px ${ut.s}`
+                            : `0 0 0 4px rgba(255,255,255,.10), 0 0 0 7px ${ut.c}55`,
             transition: "all .3s cubic-bezier(.16,1,.3,1)"
           }
         }, React.createElement(Avatar, { name: p.from, size: open ? 68 : 108, fontSize: open ? 26 : 40 }))),
       React.createElement("div", {
-        style: { fontFamily: T.disp, fontSize: open ? 19 : 24, fontWeight: 700, color: T.ink, letterSpacing: -.4 }
+        style: { fontFamily: T.disp, fontSize: open ? 19 : 26, fontWeight: 700, color: open ? T.ink : "#fff", letterSpacing: -.5 }
       }, p.from),
-      React.createElement("div", { style: { fontSize: 13, color: T.dim, marginTop: 3 } },
+      React.createElement("div", { style: { fontSize: 13.5, color: open ? T.dim : "rgba(255,255,255,.7)", marginTop: 4 } },
         [meta.title, svcOfName(p.from) || meta.service].filter(Boolean).join(" · ")),
-      React.createElement("div", { style: { fontSize: 12.5, color: T.faint, marginTop: 2 } },
-        p.service ? `${p.service} · ` : "", p.urgency || "", " · waiting ", waited, " min")),
+      React.createElement("div", { style: { fontSize: 12.5, color: open ? T.faint : "rgba(255,255,255,.45)", marginTop: 3 } },
+        p.service && p.service !== (svcOfName(p.from) || meta.service) ? `${p.service} · ` : "",
+        p.urgency || "", " · waiting ", waited)),
 
     // --- stage 2: the whole page, only once they have taken the call -------
     open && React.createElement("div", {
@@ -5122,7 +5130,7 @@ const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDi
        row("Reason", p.question || "-"),
        p.mrn && row(p.idType === "PHN" ? "PHN" : "MRN", p.mrn),
        row("Sent", fmtdt(p.sentAt)),
-       row("Waiting", `${waited} min`, T.urgent)),
+       row("Waiting", waited, T.urgent)),
 
     React.createElement("div", { style: { flex: 1, minHeight: 10 } }),
 
@@ -5467,7 +5475,47 @@ const DetailUI = ({
       color: T.dim,
       marginBottom: 10
     }
-  }, p.idType === "PHN" ? "PHN " : "MRN ", p.mrn, " \xB7 ", p.second), p.kind === "broadcast" ? !p.members.find(m => m.name === RECEIVER)?.ack ? /*#__PURE__*/React.createElement(Btn, {
+  }, p.idType === "PHN" ? "PHN " : "MRN ", p.mrn, " \xB7 ", p.second), /*#__PURE__*/React.createElement("div", {
+    style: {
+      background: T.surface,
+      border: `1px solid ${T.line}`,
+      borderLeft: `3px solid ${tier(p.urgency).c}`,
+      borderRadius: 12,
+      padding: "4px 11px",
+      marginBottom: 10
+    }
+  }, [
+    ["Service", p.service || "-"],
+    ["Urgency", p.urgency || "-", p.urgency === "STAT" ? T.stat : p.urgency === "Urgent" ? T.urgent : null],
+    ["Consult type", p.reason || "-"],
+    p.location ? ["Location", p.location] : null,
+    p.mrn ? [p.idType === "PHN" ? "PHN" : "MRN", p.mrn, null, true] : null,
+    ["Sent", fmtdt(p.sentAt)],
+    p.escalatedTo ? ["Escalated to", p.escalatedTo, T.stat] : null
+  ].filter(Boolean).map(([k, v, tone, mono], n) => /*#__PURE__*/React.createElement("div", {
+    key: k,
+    style: {
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "baseline",
+      gap: 10,
+      padding: "6px 0",
+      borderTop: n === 0 ? "none" : `1px solid ${T.line}`
+    }
+  }, /*#__PURE__*/React.createElement("span", {
+    style: { fontSize: 11.5, color: T.faint, flexShrink: 0 }
+  }, k), /*#__PURE__*/React.createElement("span", {
+    style: {
+      fontSize: 12.5,
+      fontWeight: 600,
+      color: tone || T.ink,
+      fontFamily: mono ? T.mono : T.sans,
+      textAlign: "right",
+      overflow: "hidden",
+      textOverflow: "ellipsis",
+      whiteSpace: "nowrap"
+    }
+  }, v)))), p.kind === "broadcast" ? !p.members.find(m => m.name === RECEIVER)?.ack ? /*#__PURE__*/React.createElement(Btn, {
     full: true,
     color: T.ok,
     onClick: onAccept
@@ -7025,7 +7073,9 @@ function PageLinkDemo() {
   // display-only inbox feed: includes declined (shown at bottom, group 4), priority-ordered
   const inbox = pages.filter(p => p.to === RECEIVER && !p.cancelled && (p.kind !== "broadcast" || p.members.some(m => m.name === RECEIVER))).sort(byState(RECEIVER));
   const ringTriggers = p => p.events.filter(e => e.type === "REM2" || e.type === "REPAGE").length;
-  const ringing = incoming.find(p => p.kind !== "broadcast" && ringTriggers(p) > 0 && !p.events.some(e => e.type === "ACK") && (ringDismiss[p.id] || 0) < ringTriggers(p));
+  const ringingCandidate = incoming.find(p => p.kind !== "broadcast" && ringTriggers(p) > 0 && !p.events.some(e => e.type === "ACK") && (ringDismiss[p.id] || 0) < ringTriggers(p));
+  // only interrupt when the phone is at rest, and never once a page is open
+  const ringing = rxHome && !openId ? ringingCandidate : null;
   const silenceRing = p => setRingDismiss(s => ({ ...s, [p.id]: ringTriggers(p) }));
   const gaps = pages.filter(p => p.gapOpen);
   const coverageView = coverage.filter(c => !locDiv.trim() || c.div.toLowerCase().includes(locDiv.trim().toLowerCase()));
