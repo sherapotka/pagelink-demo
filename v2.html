@@ -4724,7 +4724,11 @@ const toAlert = p => ({
   senderDepartment: svcOfName(p.from) || null,
   service: p.service || null,
   urgency: (p.urgency || "routine").toLowerCase(),
-  summary: `${p.urgency || "Routine"} ${p.service ? p.service.toLowerCase() + " " : ""}page from ${svcOfName(p.from) || p.from}`,
+  summary: (function () {
+    var from = svcOfName(p.from) || p.from;
+    var svc = p.service && p.service !== from ? p.service.toLowerCase() + " " : "";
+    return (p.urgency || "Routine") + " " + svc + "page from " + from;
+  })(),
   question: p.question || "",
   location: p.location || null,
   ageBand: p.ageBand || null,
@@ -4847,12 +4851,13 @@ const IncomingPageLockScreen = ({ alert, sound, onToggleSound, onAccept, onDecli
       React.createElement("div", {
         className: "pl-ring",
         style: {
-          width: 62, height: 62, borderRadius: 16, background: T.blue, marginBottom: 14,
-          display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0
+          borderRadius: 999, marginBottom: 14, display: "inline-flex",
+          boxShadow: "0 0 0 4px rgba(255,255,255,.10), 0 0 0 7px " + tone + "55"
         }
-      }, React.createElement(Icon, { name: "pager", size: 30, sw: 1.7 })),
-      React.createElement("div", { style: { fontFamily: T.disp, fontSize: 19, fontWeight: 700, letterSpacing: -.4 } }, "PageLink"),
-      React.createElement("div", { style: { fontSize: 12.5, color: "rgba(255,255,255,.62)", marginTop: 2 } }, "Incoming clinical page"),
+      }, React.createElement(Avatar, { name: alert.senderName, size: 104, fontSize: 38 })),
+      React.createElement("div", { style: { fontFamily: T.disp, fontSize: 26, fontWeight: 700, letterSpacing: -.5 } }, alert.senderName),
+      React.createElement("div", { style: { fontSize: 13.5, color: "rgba(255,255,255,.7)", marginTop: 4 } }, alert.senderDepartment || ""),
+      React.createElement("div", { style: { fontSize: 12.5, color: "rgba(255,255,255,.45)", marginTop: 3 } }, "Incoming clinical page"),
       React.createElement("div", {
         style: {
           marginTop: 12, padding: "4px 10px", borderRadius: 6, background: tone,
@@ -5103,7 +5108,7 @@ const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDi
         [meta.title, svcOfName(p.from) || meta.service].filter(Boolean).join(" · ")),
       React.createElement("div", { style: { fontSize: 12.5, color: open ? T.faint : "rgba(255,255,255,.45)", marginTop: 3 } },
         p.service && p.service !== (svcOfName(p.from) || meta.service) ? `${p.service} · ` : "",
-        p.urgency || "", " · waiting ", waited)),
+        p.urgency || "")),
 
     // --- stage 2: the whole page, only once they have taken the call -------
     open && React.createElement("div", {
@@ -6667,7 +6672,23 @@ function PageLinkDemo() {
   const demoPage = () => pages.find(p => p.to === RECEIVER && !p.events.some(e => e.type === "ACK") && !p.declined)
                        || pages.find(p => p.to === RECEIVER)
                        || pages[0]
-                       || null;
+                       // nothing seeded yet: fabricate one so the preview always works
+                       || {
+                            id: "demo-preview",
+                            from: SENDER,
+                            to: RECEIVER,
+                            service: "Neurosurgery",
+                            urgency: "Urgent",
+                            reason: "New patient",
+                            question: "New focal weakness after head injury.",
+                            idType: "MRN",
+                            mrn: "4471902",
+                            second: "J.M",
+                            location: "ED Bay 4",
+                            ageBand: "Adult",
+                            sentAt: Date.now() - 4 * 60000,
+                            events: []
+                          };
   // raise the in-app banner on the receiving phone when a page arrives
   const raiseAlert = p => {
     if (!ENABLE_NOTIFICATION_DEMO) return;
@@ -7267,16 +7288,7 @@ function PageLinkDemo() {
       fontFamily: T.sans, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6
     }
   }, /*#__PURE__*/React.createElement(Icon, { name: "phone", size: 12 }), "Phone at rest"),
-     ENABLE_NOTIFICATION_DEMO && /*#__PURE__*/React.createElement("button", {
-    onClick: () => { const d = lastAlert || (demoPage() && toAlert(demoPage())); if (!d) return; setBanner(null); setForceCall(null); setLockPreview(d); },
-    title: "Simulation only \u00b7 no real notification, call or device alert is sent",
-    style: {
-      background: T.surface, color: T.dim, border: `1px solid ${T.line}`,
-      borderRadius: 8, padding: "6px 11px", fontSize: 11.5, fontWeight: 700,
-      fontFamily: T.sans, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6
-    }
-  }, /*#__PURE__*/React.createElement(Icon, { name: "phone", size: 12 }), "Preview recipient alert"),
-     ENABLE_NOTIFICATION_DEMO && /*#__PURE__*/React.createElement("button", {
+          ENABLE_NOTIFICATION_DEMO && /*#__PURE__*/React.createElement("button", {
     onClick: () => { const d = lastAlert || (demoPage() && toAlert(demoPage())); if (!d) return; setLockPreview(null); setForceCall(null); setRxHome(true); setBanner(d); },
     style: {
       background: T.surface, color: T.dim, border: `1px solid ${T.line}`,
