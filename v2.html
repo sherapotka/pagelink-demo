@@ -1398,13 +1398,6 @@ const PageRow = ({ p, me, dir, onOpen, extra }) => {
   }, ident), " \u00b7 ", /*#__PURE__*/React.createElement("span", {
     style: { color: acked ? T.ok : p.declined ? T.stat : T.faint, fontWeight: 500 }
   }, outcome)),
-  (p.escalatedTo || p.escalationExhausted) && !acked && /*#__PURE__*/React.createElement("div", {
-    style: {
-      display: "flex", alignItems: "center", gap: 4, marginTop: 3,
-      fontSize: 10, fontWeight: 600, color: T.stat
-    }
-  }, /*#__PURE__*/React.createElement(Icon, { name: "alert", size: 10, sw: 2.4 }),
-     p.escalatedTo ? `Escalated to ${p.escalatedTo}` : "Call order exhausted \u00b7 Locating notified"),
   extra);
 };
 // Incoming / Outgoing. One list at a time: a physician is either triaging what
@@ -5124,7 +5117,6 @@ const CallScreen = ({ p, me, directory = [], roster = [], onAccept, onView, onDi
          style: { display: "flex", flexWrap: "wrap", gap: 5, padding: "6px 0 2px" }
        }, p.location && chip("Location", p.location, T.blue),
           p.ageBand && chip("Patient", p.ageBand, T.dim)),
-       p.escalatedTo && row("Escalated to", p.escalatedTo, T.stat),
        p.service && row("Service", p.service),
        row("Urgency", p.urgency || "-", stat ? T.stat : p.urgency === "Urgent" ? T.urgent : T.ink),
        row("Reason", p.question || "-"),
@@ -5491,7 +5483,7 @@ const DetailUI = ({
     p.location ? ["Location", p.location] : null,
     p.mrn ? [p.idType === "PHN" ? "PHN" : "MRN", p.mrn, null, true] : null,
     ["Sent", fmtdt(p.sentAt)],
-    p.escalatedTo ? ["Escalated to", p.escalatedTo, T.stat] : null
+    null
   ].filter(Boolean).map(([k, v, tone, mono], n) => /*#__PURE__*/React.createElement("div", {
     key: k,
     style: {
