@@ -1060,7 +1060,9 @@ const genDemoPages = () => {
     name,
     service: svc
   })));
-  const others = allDocs.filter(d => d.name !== SENDER && d.name !== RECEIVER);
+  // Demo pages reference only physicians who have a headshot, so no generated
+  // initials appear anywhere in the seeded data.
+  const others = allDocs.filter(d => d.name !== SENDER && d.name !== RECEIVER && AVATARS[d.name]);
   const svcOf = name => (allDocs.find(d => d.name === name) || {}).service || pick(SERVICES);
   const qFor = svc => pick(DEMO_QUESTIONS[svc] || ["Please review this patient when able", "Advice needed on ongoing management", "New consult · details in chart"]);
   const stamp = () => {
