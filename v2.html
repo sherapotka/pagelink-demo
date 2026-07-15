@@ -4198,9 +4198,9 @@ const ConsultTypeSelector = ({ value, onChange, options }) =>
         onClick: () => onChange(o),
         style: {
           minHeight: 44, padding: "0 14px", borderRadius: RAD.chip, cursor: "pointer",
-          fontSize: 14, fontFamily: T.sans, fontWeight: on ? 600 : 400,
-          background: on ? T.blue : T.surface, color: on ? "#fff" : T.dim,
-          border: `1px solid ${on ? T.blue : T.line}`,
+          fontSize: 14, fontFamily: T.sans, fontWeight: on ? 600 : 500,
+          background: on ? T.blue : T.surface, color: on ? "#fff" : T.ink,
+          border: `1.5px solid ${on ? T.blue : T.line}`,
           display: "inline-flex", alignItems: "center", gap: 6
         }
       }, on && h(Icon, { name: "check", size: 13, sw: 3 }), o);
@@ -4223,7 +4223,7 @@ const UrgencySelector = ({ value, onChange }) => {
           flex: 1, minHeight: 44, cursor: "pointer", fontFamily: T.sans, fontSize: 13.5,
           fontWeight: on ? 700 : 500,
           background: on ? tone : "transparent",
-          color: on ? "#fff" : T.dim,
+          color: on ? "#fff" : T.ink,
           border: "none",
           borderLeft: i === 0 ? "none" : `1px solid ${on ? tone : T.line}`,
           display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5
@@ -4425,9 +4425,9 @@ const ComposerUI = ({ draft, setDraft, roster, directory, services, deviceDark, 
               onClick: () => set({ idType: t, mrn: "" }),
               style: {
                 minHeight: 44, padding: "0 16px", borderRadius: RAD.chip, cursor: "pointer",
-                fontSize: 14, fontFamily: T.sans, fontWeight: on ? 600 : 400,
-                background: on ? T.blue : T.surface, color: on ? "#fff" : T.dim,
-                border: `1px solid ${on ? T.blue : T.line}`
+                fontSize: 14, fontFamily: T.sans, fontWeight: on ? 600 : 500,
+                background: on ? T.blue : T.surface, color: on ? "#fff" : T.ink,
+                border: `1.5px solid ${on ? T.blue : T.line}`
               }
             }, t);
           })),
