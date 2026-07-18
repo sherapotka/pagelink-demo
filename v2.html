@@ -1413,8 +1413,9 @@ const GroupedPages = ({ pages, dir, renderCard }) => {
        React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: T.faint, fontFamily: T.mono } }, groups[d].length)),
     groups[d].map(renderCard)));
 };
-// grp(pages, dir, cb) is paren-identical to pages.map(cb)
-const grp = (pages, dir, renderCard) => React.createElement(GroupedPages, { pages, dir, renderCard });
+// grp is a flat list again — the division grouping headers were removed, but the
+// row design (division-leads, coloured) is kept. paren-identical to pages.map(cb).
+const grp = (pages, dir, renderCard) => pages.map(renderCard);
 // Incoming / Outgoing. One list at a time: a physician is either triaging what
 // came in or chasing what they sent, rarely both in the same glance.
 const DirTabs = ({ value, setValue, inCount, outCount }) => React.createElement("div", {
