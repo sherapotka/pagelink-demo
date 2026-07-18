@@ -1242,7 +1242,7 @@ const genDemoPages = () => {
                    "Routine", "Routine", "Routine", "Routine", "Routine",
                    "Urgent", "Urgent", "Urgent", "Urgent", "Urgent", "Urgent",
                    "STAT", "STAT", "STAT", "STAT"];
-  const PER_DIR = 25;
+  const PER_DIR = 5;
   [SENDER, RECEIVER].forEach((me, mi) => {
     for (let i = 0; i < PER_DIR; i++) {
       // first five of each direction pin one of every status; the rest keep the
@@ -1357,18 +1357,18 @@ const PageRow = ({ p, me, dir, onOpen, extra }) => {
     style: { display: "flex", alignItems: "center", gap: 7 }
   }, /*#__PURE__*/React.createElement(Avatar, { name: who, size: 26, fontSize: 15 }),
      /*#__PURE__*/React.createElement("div", { style: { flex: 1, minWidth: 0 } },
-       /*#__PURE__*/React.createElement("div", {
-         style: {
-           fontSize: 13, fontWeight: 600, color: T.ink, lineHeight: 1.2,
-           whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
-         }
-       }, who),
        svc && /*#__PURE__*/React.createElement("div", {
          style: {
-           fontSize: 10.5, color: T.faint, lineHeight: 1.3,
+           fontSize: 14, fontWeight: 700, lineHeight: 1.2, color: DIV[svc] || T.ink,
            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
          }
-       }, svc)),
+       }, svc),
+       /*#__PURE__*/React.createElement("div", {
+         style: {
+           fontSize: 11.5, fontWeight: 500, color: T.dim, lineHeight: 1.3,
+           whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"
+         }
+       }, who)),
      /*#__PURE__*/React.createElement("span", {
        style: { display: "inline-flex", alignItems: "center", gap: 5, flexShrink: 0 }
      }, /*#__PURE__*/React.createElement(UrgChip, { u: p.urgency, small: true, muted: !isNew }),
@@ -1376,26 +1376,13 @@ const PageRow = ({ p, me, dir, onOpen, extra }) => {
         /*#__PURE__*/React.createElement("span", {
           style: { fontFamily: T.mono, fontSize: 10, color: T.faint }
         }, fmt(p.sentAt)))),
-  // line 2 — WHAT: the clinical question
-  /*#__PURE__*/React.createElement("div", {
-    style: {
-      fontSize: 12.5,
-      fontWeight: isNew ? 600 : 450,
-      color: isNew ? T.ink : T.dim,
-      lineHeight: 1.35,
-      margin: "5px 0 3px",
-      display: "-webkit-box",
-      WebkitLineClamp: 2,
-      WebkitBoxOrient: "vertical",
-      overflow: "hidden"
-    }
-  }, p.question),
-  // line 3 — DETAIL: identifiers and outcome
+  // line 2 — DETAIL: identifiers and outcome (clinical question not shown in the list)
   /*#__PURE__*/React.createElement("div", {
     style: {
       fontSize: 10,
       fontWeight: 400,
       color: T.faint,
+      marginTop: 4,
       whiteSpace: "nowrap",
       overflow: "hidden",
       textOverflow: "ellipsis"
@@ -1407,6 +1394,27 @@ const PageRow = ({ p, me, dir, onOpen, extra }) => {
   }, outcome)),
   extra);
 };
+// Group pages under a coloured division header that sticks while you scroll.
+const divOfPage = (p, dir) => (dir === "in" ? (svcOfName(p.from) || p.service) : (svcOfName(p.to) || p.service)) || "Other";
+const GroupedPages = ({ pages, dir, renderCard }) => {
+  const groups = {}, order = [];
+  pages.forEach(p => { const d = divOfPage(p, dir); if (!groups[d]) { groups[d] = []; order.push(d); } groups[d].push(p); });
+  return order.map(d => React.createElement("div", { key: d, style: { marginBottom: 6 } },
+    React.createElement("div", {
+      style: {
+        position: "sticky", top: 0, zIndex: 5,
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        margin: "0 -12px 4px", padding: "6px 12px",
+        background: T.bg, borderBottom: `2px solid ${DIV[d] || T.line}`
+      }
+    }, React.createElement("span", {
+        style: { fontSize: 12, fontWeight: 800, letterSpacing: .6, textTransform: "uppercase", color: DIV[d] || T.ink }
+      }, d),
+       React.createElement("span", { style: { fontSize: 11, fontWeight: 700, color: T.faint, fontFamily: T.mono } }, groups[d].length)),
+    groups[d].map(renderCard)));
+};
+// grp(pages, dir, cb) is paren-identical to pages.map(cb)
+const grp = (pages, dir, renderCard) => React.createElement(GroupedPages, { pages, dir, renderCard });
 // Incoming / Outgoing. One list at a time: a physician is either triaging what
 // came in or chasing what they sent, rarely both in the same glance.
 const DirTabs = ({ value, setValue, inCount, outCount }) => React.createElement("div", {
@@ -1838,7 +1846,7 @@ const Phone = ({
     className: "pl-phone3d",
     style: {
       position: "relative",
-      transform: `perspective(1400px) rotateY(${tilt || 0}deg)`
+      transform: tilt ? `perspective(1400px) rotateY(${tilt}deg)` : "none"
     }
   }, /*#__PURE__*/React.createElement("span", {
     style: {
@@ -7407,10 +7415,10 @@ function PageLinkDemo() {
   }, /*#__PURE__*/React.createElement(Icon, { name: "pagers", size: 16, style: { display: "inline-block", verticalAlign: "-3px", marginRight: 8 } }), "Page Someone"), /*#__PURE__*/React.createElement(DirTabs, {
     value: sDir, setValue: setSDir,
     inCount: senderIncoming.length, outCount: mine.length
-  }), sDir === "out" && /*#__PURE__*/React.createElement(Sec, { big: true, accent: T.blue }, "OUTGOING PAGES \u00b7 tap for chat & status"), sDir === "out" && mine.length === 0 && /*#__PURE__*/React.createElement(Note, null, "Tap New page to page someone."), mine.slice().sort(byState()).map(p => outCard(p, () => {
+  }), sDir === "out" && /*#__PURE__*/React.createElement(Sec, { big: true, accent: T.blue }, "OUTGOING PAGES \u00b7 tap for chat & status"), sDir === "out" && mine.length === 0 && /*#__PURE__*/React.createElement(Note, null, "Tap New page to page someone."), grp(mine.slice().sort(byState()), "out", p => outCard(p, () => {
     setOpenSenderId(p.id);
     markRead(p.id, SENDER);
-  })), sDir === "in" && /*#__PURE__*/React.createElement(Sec, { big: true, accent: T.ok }, "INCOMING PAGES \u00b7 pages you received"), sDir === "in" && senderIncoming.length === 0 && /*#__PURE__*/React.createElement(Note, null, "No incoming pages right now \u00b7 pages addressed to you appear here."), sDir === "in" && senderIncoming.slice().sort(byState()).map(p => inCard(p, () => setOpenInS(p.id))))), view === "user" && /*#__PURE__*/React.createElement("div", {
+  })), sDir === "in" && /*#__PURE__*/React.createElement(Sec, { big: true, accent: T.ok }, "INCOMING PAGES \u00b7 pages you received"), sDir === "in" && senderIncoming.length === 0 && /*#__PURE__*/React.createElement(Note, null, "No incoming pages right now \u00b7 pages addressed to you appear here."), sDir === "in" && grp(senderIncoming.slice().sort(byState()), "in", p => inCard(p, () => setOpenInS(p.id))))), view === "user" && /*#__PURE__*/React.createElement("div", {
     style: {
       alignSelf: "center",
       flex: 1,
@@ -7661,10 +7669,10 @@ function PageLinkDemo() {
   }, /*#__PURE__*/React.createElement(Icon, { name: "pagers", size: 16, style: { display: "inline-block", verticalAlign: "-3px", marginRight: 8 } }), "Page Someone"), /*#__PURE__*/React.createElement(DirTabs, {
     value: rDir, setValue: setRDir,
     inCount: inbox.length, outCount: receiverOutgoing.length
-  }), rDir === "out" && /*#__PURE__*/React.createElement(Sec, { big: true, accent: T.blue }, "OUTGOING PAGES \u00b7 pages you've sent"), rDir === "out" && receiverOutgoing.length === 0 && /*#__PURE__*/React.createElement(Note, null, "Pages you send appear here with live status."), rDir === "out" && receiverOutgoing.slice().sort(byState()).map(p => outCard(p, () => {
+  }), rDir === "out" && /*#__PURE__*/React.createElement(Sec, { big: true, accent: T.blue }, "OUTGOING PAGES \u00b7 pages you've sent"), rDir === "out" && receiverOutgoing.length === 0 && /*#__PURE__*/React.createElement(Note, null, "Pages you send appear here with live status."), rDir === "out" && grp(receiverOutgoing.slice().sort(byState()), "out", p => outCard(p, () => {
     setOpenOutR(p.id);
     markRead(p.id, RECEIVER);
-  })), rDir === "in" && /*#__PURE__*/React.createElement(Sec, { big: true, accent: T.ok }, "INCOMING PAGES \u00b7 pages you received"), rDir === "in" && inbox.length === 0 && /*#__PURE__*/React.createElement(Note, null, "Nothing yet. Pages arrive with full context: who, why, how urgent."), rDir === "in" && inbox.map(p => /*#__PURE__*/React.createElement(PageRow, {
+  })), rDir === "in" && /*#__PURE__*/React.createElement(Sec, { big: true, accent: T.ok }, "INCOMING PAGES \u00b7 pages you received"), rDir === "in" && inbox.length === 0 && /*#__PURE__*/React.createElement(Note, null, "Nothing yet. Pages arrive with full context: who, why, how urgent."), rDir === "in" && grp(inbox, "in", p => /*#__PURE__*/React.createElement(PageRow, {
     key: p.id,
     p: p,
     me: RECEIVER,
